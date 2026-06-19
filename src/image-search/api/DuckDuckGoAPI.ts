@@ -23,7 +23,7 @@ export default class DuckDuckGoAPI {
 	private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
 
 	private readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
-		dnt: '1',
+		dnt: '1'
 	};
 
 	private readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
@@ -35,7 +35,7 @@ export default class DuckDuckGoAPI {
 			'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
 		accept: 'application/json, text/javascript, */*; q=0.01',
 		referer: 'https://duckduckgo.com/',
-		authority: 'duckduckgo.com',
+		authority: 'duckduckgo.com'
 	};
 
 	private readonly TOKEN_REGEX = /vqd=(?<vqd>[\d-]+)/;
@@ -94,12 +94,12 @@ export default class DuckDuckGoAPI {
 		const optionValues: string[] = [];
 
 		for (const optionName of this.OPTION_NAMES) {
-			const optionValue: string | undefined =
-				options[optionName as keyof DDGSearchOptions]?.toString();
+			const optionValue: string | undefined = options[optionName as keyof DDGSearchOptions]?.toString();
 
 			if (optionValue == null) {
 				optionValues.push('');
-			} else {
+			}
+			else {
 				optionValues.push(`${optionName}:${optionValue}`);
 			}
 		}

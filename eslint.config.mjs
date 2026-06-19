@@ -15,7 +15,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
 	// Files ESLint should never look at.
 	{
-		ignores: ['dist/', 'build/', 'out/', 'node_modules/', 'coverage/', 'tsdown.config.ts'],
+		ignores: ['dist/', 'build/', 'out/', 'node_modules/', 'coverage/', 'tsdown.config.ts']
 	},
 	// Base JavaScript recommendations.
 	js.configs.recommended,
@@ -27,11 +27,11 @@ export default tseslint.config(
 			parserOptions: {
 				// Resolve the nearest tsconfig.json automatically for type-aware rules.
 				projectService: true,
-				tsconfigRootDir: import.meta.dirname,
+				tsconfigRootDir: import.meta.dirname
 			},
 			globals: {
-				...globals.node,
-			},
+				...globals.node
+			}
 		},
 		rules: {
 			// --- Project architectural invariants ---------------------------------
@@ -48,15 +48,15 @@ export default tseslint.config(
 				'error',
 				{
 					selector: 'TSEnumDeclaration',
-					message: 'Use the const-object enum pattern instead of `enum` (see code-style.md).',
-				},
+					message: 'Use the const-object enum pattern instead of `enum` (see code-style.md).'
+				}
 			],
 
 			// --- Quality / bug-class rules ----------------------------------------
 
 			// Catch unawaited promises — a common defect in async tool loops.
-			'@typescript-eslint/no-floating-promises': 'error',
-		},
+			'@typescript-eslint/no-floating-promises': 'error'
+		}
 	},
 	// Test tree: not part of the build tsconfig (rootDir: ./src). Resolve its type
 	// information from the dedicated tsconfig.test.json instead of the project
@@ -67,24 +67,24 @@ export default tseslint.config(
 			parserOptions: {
 				projectService: false,
 				project: './tsconfig.test.json',
-				tsconfigRootDir: import.meta.dirname,
-			},
+				tsconfigRootDir: import.meta.dirname
+			}
 		},
 		rules: {
 			// node:test's describe/it return a Promise that must NOT be awaited at
 			// the call site; the rule would flag every block as a false positive.
 			// Stays strict in src/, where unawaited promises are real defects.
-			'@typescript-eslint/no-floating-promises': 'off',
-		},
+			'@typescript-eslint/no-floating-promises': 'off'
+		}
 	},
 	// Plain JS / config files are not part of the TS program: disable type-aware
 	// rules for them so ESLint does not try to load type information it lacks.
 	{
 		files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
-		...tseslint.configs.disableTypeChecked,
+		...tseslint.configs.disableTypeChecked
 	},
 	// Must come last: turns off any ESLint layout rules so they don't conflict
 	// with the formatter (dprint owns layout). Despite its name, this config is
 	// a generic list of formatting-related rule disables, not Prettier-specific.
-	eslintConfigPrettier,
+	eslintConfigPrettier
 );

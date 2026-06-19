@@ -9,7 +9,7 @@ export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
 		{ options: { size: 'Large', layout: 'Square' }, priority: 0 },
 		{ options: { layout: 'Square' }, priority: 5 },
 		{ options: { size: 'Large' }, priority: 10 },
-		{ options: {}, priority: 20 },
+		{ options: {}, priority: 20 }
 	];
 
 	public async search(query: string): Promise<ImageSearchResult[]> {
@@ -20,7 +20,7 @@ export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
 			const queryResults: PrioritizedResult[] = await this.getPrioritizedResults(
 				query,
 				token,
-				option,
+				option
 			);
 			prioritizedResults.push(...queryResults);
 		}
@@ -59,7 +59,7 @@ export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
 
 			prioritizedResults.push({
 				result,
-				priority: prioritizedOptions.priority + i,
+				priority: prioritizedOptions.priority + i
 			});
 		}
 
