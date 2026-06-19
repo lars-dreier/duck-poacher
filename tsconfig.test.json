@@ -1,0 +1,12 @@
+{
+	// Type-checking project for the test tree only. The build tsconfig.json keeps
+	// rootDir: ./src so it must not see test files; this config extends it, drops
+	// the emit-oriented settings, and widens the program to cover src + test so
+	// ESLint's type-aware rules and `tsc --noEmit` can check the tests.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"noEmit": true
+	},
+	"include": ["src/**/*", "test/**/*"]
+}
