@@ -3,8 +3,8 @@ title: "Testing Guide"
 description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API, shared fixtures, and the naming/comment conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-06-20T00:00:00Z"
-related_docs: ["development.md", "code-style.md"]
+last_updated: "2026-06-19T23:32:31Z"
+related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
 ---
 
 # Testing Guide
@@ -54,11 +54,13 @@ Consequences to keep in mind:
 - **Network is required.** The API and engine specs fail without connectivity.
   Only `ImageSearchResult.test.ts` (a pure value object) runs offline.
 - **DDG can break the tests.** DDG changes its `vqd` token format, the `i.js`
-  response shape, headers it accepts, and its transport (responses are chunked,
-  with no `content-length`). A failure here usually means DDG changed, not that the
-  test is flaky — investigate the real response before "fixing" the test. The
-  `content-length` quirk is why the API uses `HttpRequest` and not
-  `AsyncResolvingHttpRequest` (which rejects without that header).
+  response shape, headers it accepts, and its transport (responses are chunked
+  and gzip/deflate/br-compressed). A failure here usually means DDG changed, not
+  that the test is flaky — investigate the real response before "fixing" the test.
+  The API issues its GETs through `node-http-toolkit`'s
+  `AsyncResolvingHttpRequest` (follows redirects, rejects on HTTP ≥ 400) and
+  buffers/decompresses the body with `HttpResponseReader`
+  ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
 - **Assert on shape, not content.** Specs assert that a token matches `/^[\d-]+$/`,
   that results are a non-empty array, that URLs are absolute http(s), that results
   dedupe and cap at 100 — never on specific images, which change constantly.
@@ -75,7 +77,7 @@ matching folder:
 test/
   TestHelper.ts                              shared fixtures (not a spec)
   image-search/
-    api/DuckDuckGoAPI.test.ts                live: token + image search
+    api/DuckDuckGoApi.test.ts                live: token + image search
     engine/DuckDuckGoImageSearchEngine.test.ts  live: search, dedupe, cap
     types/ImageSearchResult.test.ts          offline: value object
 ```

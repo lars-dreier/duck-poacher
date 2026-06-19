@@ -3,8 +3,8 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-19T19:03:11Z"
-related_docs: ["overview.md", "code-style.md", "testing.md"]
+last_updated: "2026-06-19T23:32:31Z"
+related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
 # Development Workflow
@@ -35,7 +35,7 @@ Node.js (build target is `node18`; `@types/node` is v25) and npm. Install with
 - `unbundle: true` — preserves the source file structure in `dist/` instead of
   bundling into one file.
 - `dts: true` — generates `.d.ts` (and `.d.mts` / `.d.cts`).
-- `sourcemap: true`, `clean: true`, `target: 'node18'`, `outDir: 'dist'`.
+- `sourcemap: false`, `clean: true`, `target: 'node18'`, `outDir: 'dist'`.
 
 The `exports` map in `package.json` points `import` at `dist/index.mjs` (+
 `.d.mts`) and `require` at `dist/index.cjs` (+ `.d.cts`). `dist/` is the only
@@ -90,18 +90,25 @@ validates. The package is ESM-first (`"type": "module"`) but ships CJS too.
 ## Common Pitfalls
 
 - **Forgetting `.ts` in imports.** Relative imports must include `.ts` (e.g.
-  `'./HttpError.ts'`). Omitting it fails under this tsconfig.
-- **Using a TypeScript `enum`.** Banned by ESLint — use the const-object pattern
-  ([code-style.md](code-style.md#const-object-enums-no-ts-enum)).
-- **Adding a second class to a file.** `max-classes-per-file` is an error; create
-  a new PascalCase file and export it from the barrel if it is public.
-- **Floating promises in `src/`.** `no-floating-promises` is an error in source;
-  `void` a fire-and-forget call deliberately (the code does this for
-  `void this.sendRequest(...)`). The rule is off only for `test/`.
+  `'../api/DuckDuckGoApi.ts'`). Omitting it fails under this tsconfig.
+- **Using a TypeScript `enum`.** Banned by ESLint — use a string-literal union
+  (or the const-object pattern when you need a runtime value)
+  ([code-style.md](code-style.md#closed-string-sets-no-ts-enum)).
+- **Adding a second class to a file.** `max-classes-per-file` is an error; the
+  engine's internal `Prioritized*` / `Ddg*` shapes are `interface`s for exactly
+  this reason. Create a new PascalCase file (and export it from the barrel if it
+  is public) when you need another class.
+- **Floating promises in `src/`.** `no-floating-promises` is an error in source.
+  No current `src/` code fires-and-forgets; if you ever need to, `void` the call
+  deliberately. The rule is off only for `test/` (where `node:test`'s
+  `describe`/`it` return promises that must not be awaited).
 - **Editing `dist/`.** It is generated and gitignored; change `src/` and rebuild.
 - **Type-checking misses test files.** `tsc --noEmit` (base config) only sees
   `src/`. Use `tsconfig.test.json` to check tests.
-- **Non-GET requests hanging.** `HttpRequest` must call `request.end()` (and
-  `write` the body) for non-GET methods; this is load-bearing (tests `[#6]`).
-- **Exporting internal helpers.** `FileSystem` is intentionally not in the barrel;
-  keep internal plumbing out of `src/index.ts`.
+- **Live tests need the network.** `npm test` hits the real DuckDuckGo API, so a
+  failure may mean DDG changed, not that your code broke. See
+  [testing.md](testing.md#live-integration-tests).
+- **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
+  The barrel re-exports only the public surface (the two classes,
+  `ImageSearchResult`, and the `Ddg*` / `IImageSearchEngine` types); the engine's
+  private helpers and internal interfaces stay unexported.
