@@ -1,8 +1,7 @@
 import DuckDuckGoApi, { type DdgSearchOptions } from '../api/DuckDuckGoApi.ts';
-import type IImageSearchEngine from '../types/IImageSearchEngine.ts';
 import ImageSearchResult from '../types/ImageSearchResult.ts';
 
-export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
+export default class DuckDuckGoImageSearch {
 	private readonly _api = new DuckDuckGoApi();
 
 	private readonly SEARCH_OPTIONS: PrioritizedSearchOption[] = [
