@@ -1,9 +1,9 @@
-import DuckDuckGoAPI, { type DDGSearchOptions } from '../api/DuckDuckGoAPI.ts';
+import DuckDuckGoApi, { type DdgSearchOptions } from '../api/DuckDuckGoApi.ts';
 import type IImageSearchEngine from '../types/IImageSearchEngine.ts';
 import ImageSearchResult from '../types/ImageSearchResult.ts';
 
 export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
-	private readonly _api = new DuckDuckGoAPI();
+	private readonly _api = new DuckDuckGoApi();
 
 	private readonly SEARCH_OPTIONS: PrioritizedSearchOption[] = [
 		{ options: { size: 'Large', layout: 'Square' }, priority: 0 },
@@ -68,7 +68,7 @@ export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
 
 	private parseResponse(responseText: string): ImageSearchResult[] {
 		const jsonObject: unknown = JSON.parse(responseText);
-		const parsedResults: DDGResult[] = (jsonObject as DDGResponse).results;
+		const parsedResults: DdgResult[] = (jsonObject as DdgResponse).results;
 		const searchResults: ImageSearchResult[] = [];
 
 		for (const result of parsedResults) {
@@ -80,7 +80,7 @@ export default class DuckDuckGoImageSearchEngine implements IImageSearchEngine {
 }
 
 interface PrioritizedSearchOption {
-	options: DDGSearchOptions;
+	options: DdgSearchOptions;
 	priority: number;
 }
 
@@ -89,11 +89,11 @@ interface PrioritizedResult {
 	priority: number;
 }
 
-interface DDGResponse {
-	results: DDGResult[];
+interface DdgResponse {
+	results: DdgResult[];
 }
 
-interface DDGResult {
+interface DdgResult {
 	image: string;
 	thumbnail: string;
 }

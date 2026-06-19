@@ -1,24 +1,24 @@
 import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
 
-export type DDGTime = 'Day' | 'Week' | 'Month';
-export type DDGSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
-export type DDGColor = 'color' | 'Monochrome';
-export type DDGType = 'photo' | 'clipart' | 'gif' | 'transparent' | 'line';
-export type DDGLayout = 'Square' | 'Tall' | 'Wide';
-export type DDGLicense = 'Any' | 'Public';
+export type DdgTime = 'Day' | 'Week' | 'Month';
+export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
+export type DdgColor = 'color' | 'Monochrome';
+export type DdgType = 'photo' | 'clipart' | 'gif' | 'transparent' | 'line';
+export type DdgLayout = 'Square' | 'Tall' | 'Wide';
+export type DdgLicense = 'Any' | 'Public';
 
-export interface DDGSearchOptions {
-	time?: DDGTime;
-	size?: DDGSize;
-	color?: DDGColor;
-	type?: DDGType;
-	layout?: DDGLayout;
-	license?: DDGLicense;
+export interface DdgSearchOptions {
+	time?: DdgTime;
+	size?: DdgSize;
+	color?: DdgColor;
+	type?: DdgType;
+	layout?: DdgLayout;
+	license?: DdgLicense;
 	safeSearch?: boolean;
 }
 
-export default class DuckDuckGoAPI {
+export default class DuckDuckGoApi {
 	// Order is important
 	private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
 
@@ -66,9 +66,9 @@ export default class DuckDuckGoAPI {
 	public async imageSearch(
 		query: string,
 		token: string,
-		options?: DDGSearchOptions,
+		options?: DdgSearchOptions,
 	): Promise<string> {
-		const searchOptions: DDGSearchOptions = options ?? {};
+		const searchOptions: DdgSearchOptions = options ?? {};
 		const url: string = this.createSearchUrl(query, token, searchOptions);
 
 		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, this.SEARCH_HEADERS);
@@ -78,7 +78,7 @@ export default class DuckDuckGoAPI {
 		return reader.readData(response);
 	}
 
-	private createSearchUrl(query: string, token: string, options: DDGSearchOptions): string {
+	private createSearchUrl(query: string, token: string, options: DdgSearchOptions): string {
 		const params = new URLSearchParams();
 		params.append('l', 'de-de');
 		params.append('o', 'json');
@@ -90,11 +90,11 @@ export default class DuckDuckGoAPI {
 		return `https://duckduckgo.com/i.js?${params.toString()}`;
 	}
 
-	private createImageSearchOptionsHeader(options: DDGSearchOptions): string {
+	private createImageSearchOptionsHeader(options: DdgSearchOptions): string {
 		const optionValues: string[] = [];
 
 		for (const optionName of this.OPTION_NAMES) {
-			const optionValue: string | undefined = options[optionName as keyof DDGSearchOptions]?.toString();
+			const optionValue: string | undefined = options[optionName as keyof DdgSearchOptions]?.toString();
 
 			if (optionValue == null) {
 				optionValues.push('');

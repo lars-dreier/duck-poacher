@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import DuckDuckGoAPI from '../../../src/image-search/api/DuckDuckGoAPI.ts';
+import DuckDuckGoApi from '../../../src/image-search/api/DuckDuckGoApi.ts';
 import { NETWORK_TIMEOUT_MS, TEST_QUERY } from '../../TestHelper.ts';
 
 interface RawDdgResponse {
 	results: Array<{ image: string; thumbnail: string }>;
 }
 
-describe('DuckDuckGoAPI', () => {
+describe('DuckDuckGoApi', () => {
 	describe('generateToken', () => {
 		it('scrapes a vqd token from the live DuckDuckGo response', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given the live DDG API
-			const api = new DuckDuckGoAPI();
+			const api = new DuckDuckGoApi();
 
 			// When a token is generated for a query
 			const token: string = await api.generateToken(TEST_QUERY);
@@ -25,7 +25,7 @@ describe('DuckDuckGoAPI', () => {
 	describe('imageSearch', () => {
 		it('returns parseable JSON with image results', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given a valid token for the query
-			const api = new DuckDuckGoAPI();
+			const api = new DuckDuckGoApi();
 			const token: string = await api.generateToken(TEST_QUERY);
 
 			// When an image search is performed
@@ -44,7 +44,7 @@ describe('DuckDuckGoAPI', () => {
 
 		it('applies search options without error', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given a valid token and a set of search options
-			const api = new DuckDuckGoAPI();
+			const api = new DuckDuckGoApi();
 			const token: string = await api.generateToken(TEST_QUERY);
 
 			// When searching with size, layout and safe-search constraints
