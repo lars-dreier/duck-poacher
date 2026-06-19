@@ -60,6 +60,6 @@
 		"typescript-eslint": "8.61.0"
 	},
 	"dependencies": {
-		"node-http-toolkit": "1.0.0"
+		"node-http-toolkit": "1.0.1"
 	}
 }
