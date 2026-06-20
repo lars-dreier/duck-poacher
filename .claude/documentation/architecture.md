@@ -3,7 +3,7 @@ title: "Architecture & Internals"
 description: "How ddg-search works inside: the two-layer API/Engine design, the token→search→parse→prioritize→dedupe→cap flow, the DdgSearchOptions encoding, the data models, and the DuckDuckGo protocol quirks."
 category: "architecture"
 tags: ["architecture", "design", "ddg", "search-strategy", "data-flow", "internals"]
-last_updated: "2026-06-19T23:32:31Z"
+last_updated: "2026-06-20T00:04:08Z"
 related_docs: ["overview.md", "code-style.md", "testing.md"]
 ---
 
@@ -29,18 +29,14 @@ The library is two cooperating classes with a clear seam:
 | Layer | Class | Responsibility | Returns |
 |-------|-------|----------------|---------|
 | API (low-level) | `DuckDuckGoApi` | Talk to DDG: get a token, GET `i.js`, encode options | **raw JSON string** |
-| Engine (high-level) | `DuckDuckGoImageSearchEngine` | Run a multi-query strategy, parse, prioritize, dedupe, cap | `ImageSearchResult[]` |
+| Engine (high-level) | `DuckDuckGoImageSearch` | Run a multi-query strategy, parse, prioritize, dedupe, cap | `ImageSearchResult[]` |
 
 The engine **owns an instance of the API** (`private readonly _api = new
 DuckDuckGoApi()`) and is the only caller of it in this package. `DuckDuckGoApi`
-knows nothing about prioritization; `DuckDuckGoImageSearchEngine` knows nothing
+knows nothing about prioritization; `DuckDuckGoImageSearch` knows nothing
 about URLs or headers. This split is the core design decision: the brittle,
 DDG-specific transport is isolated in one class so the strategy layer stays
 pure data manipulation.
-
-`DuckDuckGoImageSearchEngine implements IImageSearchEngine`, so the engine is
-swappable behind that interface — the abstraction exists to allow alternative
-image-search backends without the rest of a consumer caring.
 
 ## End-to-End Flow
 
@@ -64,7 +60,7 @@ rejects the whole call (see [Error Handling](#error-handling)).
 
 ## The API Layer: DuckDuckGoApi
 
-`src/image-search/api/DuckDuckGoApi.ts`. A thin, stateless client. All its
+`src/DuckDuckGoApi.ts`. A thin, stateless client. All its
 fields are `private readonly` constants (headers, the option-name order, the
 token regex). It exposes two public methods and keeps URL construction private.
 
@@ -107,7 +103,7 @@ The `f` parameter is the interesting part. `DdgSearchOptions` is encoded by
 pairs, **in a fixed order** defined by `OPTION_NAMES`:
 
 ```ts
-private readonly OPTION_NAMES = ['time', 'size', 'color', 'type', 'layout', 'license'];
+private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
 ```
 
 Each option present becomes `name:value`; each absent option becomes an empty
@@ -131,7 +127,7 @@ The option value types (all string unions, exported for callers):
 
 ## The Engine Layer: Prioritized Search
 
-`src/image-search/engine/DuckDuckGoImageSearchEngine.ts`. The engine runs the
+`src/image/DuckDuckGoImageSearch.ts`. The engine runs the
 same query four times with progressively looser filters and ranks results by
 how well they matched the preferred (tight) filter.
 
@@ -175,20 +171,15 @@ shapes `PrioritizedSearchOption`, `PrioritizedResult`, `DdgResponse`, and
 
 ## Data Models
 
-Two public type contracts in `src/image-search/types/`:
+The one public value object lives in `src/image/ImageSearchResult.ts`:
 
 ```ts
-// ImageSearchResult.ts — the value object every search returns
+// src/image/ImageSearchResult.ts — the value object every search returns
 class ImageSearchResult {
   constructor(
     public readonly thumbnailUrl: string,
     public readonly imageUrl: string
   ) {}
-}
-
-// IImageSearchEngine.ts — the engine's interface
-interface IImageSearchEngine {
-  search(query: string): Promise<ImageSearchResult[]>;
 }
 ```
 
@@ -197,6 +188,13 @@ parameter properties). Note the **constructor argument order is
 `thumbnailUrl, imageUrl`** but the engine maps from DDG's `{ image, thumbnail }`
 — `new ImageSearchResult(result.thumbnail, result.image)`. Keep that mapping
 straight when touching either side.
+
+**The high-level engine is not part of the public surface.** `src/index.ts`
+re-exports only `DuckDuckGoApi`, `ImageSearchResult`, and the `Ddg*` types —
+`DuckDuckGoImageSearch` lives in the source tree but is not exported from the
+barrel (see [overview.md](overview.md#public-api)). The earlier
+`IImageSearchEngine` interface that the engine implemented has been removed;
+there is no engine interface anymore.
 
 ## DuckDuckGo Protocol Quirks
 

@@ -3,7 +3,7 @@ title: "Project Overview"
 description: "What ddg-search is, its technology stack, how to install it, the public API surface, a runnable usage example, and the project layout."
 category: "overview"
 tags: ["overview", "getting-started", "public-api", "usage", "stack"]
-last_updated: "2026-06-19T23:32:31Z"
+last_updated: "2026-06-20T00:04:08Z"
 related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md"]
 ---
 
@@ -26,14 +26,18 @@ related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md
 undocumented image-search endpoints** and returns image + thumbnail URLs. It has
 no UI, no CLI, and no server — it is a library consumed by other code.
 
-There are two ways to use it:
+The public entry point is **`DuckDuckGoApi`**, the low-level client:
+`generateToken(query)` then `imageSearch(query, token, options?)` returns the
+**raw JSON string** from DuckDuckGo, giving you direct control over options and
+parsing. `ImageSearchResult` is the value object you wrap individual results in.
 
-- **`DuckDuckGoImageSearchEngine`** — the high-level entry point. Call
-  `search(query)` and get back a deduped, prioritized, capped list of
-  `ImageSearchResult`. Use this unless you have a reason not to.
-- **`DuckDuckGoApi`** — the low-level client. `generateToken(query)` then
-  `imageSearch(query, token, options?)` returns the **raw JSON string** from
-  DuckDuckGo. Use this when you want direct control over options and parsing.
+A higher-level **`DuckDuckGoImageSearch`** engine also lives in the source tree
+(`src/image/`). It runs a deduped, prioritized, capped multi-query strategy and
+returns `ImageSearchResult[]` — but it is **not currently re-exported from the
+package barrel**, so it is internal. See
+[architecture.md](architecture.md#the-engine-layer-prioritized-search) for how
+it works and [its data-models note](architecture.md#data-models) on the export
+boundary.
 
 Because it scrapes endpoints DuckDuckGo does not document or guarantee, the
 library is inherently brittle: DDG can change the token format, the response
@@ -76,37 +80,23 @@ public.
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGoImageSearchEngine` | class | High-level `search(query) → ImageSearchResult[]` |
 | `DuckDuckGoApi` | class | Low-level token + raw-JSON image search |
 | `ImageSearchResult` | class | Value object: `{ thumbnailUrl, imageUrl }` |
-| `IImageSearchEngine` | type | Interface implemented by the engine |
 | `DdgSearchOptions` | type | Filter options for `DuckDuckGoApi.imageSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
-`DuckDuckGoImageSearchEngine`, `DuckDuckGoApi`, and `ImageSearchResult` are
-runtime values; the rest are type-only exports (`export type`).
+`DuckDuckGoApi` and `ImageSearchResult` are runtime values; the rest are
+type-only exports (`export type`). The `DuckDuckGoImageSearch` engine is **not**
+in the barrel — it exists in `src/image/` but is not part of the published
+surface.
 
 ## Usage
 
-High-level — let the engine do the work:
-
-```ts
-import { DuckDuckGoImageSearchEngine } from 'ddg-search';
-
-const engine = new DuckDuckGoImageSearchEngine();
-const results = await engine.search('mountain landscape');
-
-for (const result of results) {
-  console.log(result.imageUrl, result.thumbnailUrl);
-}
-// results: deduped by imageUrl, prioritized (Large/Square first), capped at 100
-```
-
-Low-level — drive the API directly when you need specific filters or the raw
+Drive the API directly — generate a token, then search and parse the raw
 response:
 
 ```ts
-import { DuckDuckGoApi, type DdgSearchOptions } from 'ddg-search';
+import { DuckDuckGoApi, ImageSearchResult, type DdgSearchOptions } from 'ddg-search';
 
 const api = new DuckDuckGoApi();
 const token = await api.generateToken('mountain landscape');
@@ -117,31 +107,42 @@ const options: DdgSearchOptions = {
   safeSearch: true
 };
 const rawJson = await api.imageSearch('mountain landscape', token, options);
-const { results } = JSON.parse(rawJson); // raw DDG shape: { results: [{ image, thumbnail }] }
+
+// raw DDG shape: { results: [{ image, thumbnail }] }
+const { results } = JSON.parse(rawJson) as { results: { image: string; thumbnail: string }[] };
+
+for (const { image, thumbnail } of results) {
+  const result = new ImageSearchResult(thumbnail, image);
+  console.log(result.imageUrl, result.thumbnailUrl);
+}
 ```
 
 `generateToken` throws `Error('Unable to read token from DuckDuckGo response.')`
 if the `vqd` token cannot be parsed. Network or HTTP failures reject from the
-underlying request. The engine runs several requests sequentially and
-**fails fast** — a single failed sub-search propagates out of `search()`.
+underlying request.
+
+For the deduped/prioritized/capped behavior, the internal
+`DuckDuckGoImageSearch` engine (`src/image/DuckDuckGoImageSearch.ts`) runs
+several requests sequentially and **fails fast** — a single failed sub-search
+propagates out of `search()`. See
+[architecture.md](architecture.md#the-engine-layer-prioritized-search).
 
 ## Project Structure
 
 ```
 src/
-  index.ts                                  public barrel (re-exports only)
-  image-search/
-    api/DuckDuckGoApi.ts                     low-level client + Ddg* option types
-    engine/DuckDuckGoImageSearchEngine.ts    high-level prioritized search
-    types/IImageSearchEngine.ts              engine interface
-    types/ImageSearchResult.ts               { thumbnailUrl, imageUrl } value object
-test/                                        mirrors src/ one-to-one (see testing.md)
-dist/                                        generated by tsdown (gitignored, published)
+  index.ts                          public barrel (re-exports only)
+  DuckDuckGoApi.ts                  low-level client + Ddg* option types
+  image/
+    DuckDuckGoImageSearch.ts        high-level prioritized search (internal)
+    ImageSearchResult.ts            { thumbnailUrl, imageUrl } value object
+test/                               mirrors src/ (see testing.md)
+dist/                               generated by tsdown (gitignored, published)
 ```
 
-The directory layout maps directly onto the architecture: `api/` is the thin
-DDG client, `engine/` is the strategy layer, `types/` holds the data contracts.
-See [architecture.md](architecture.md) for how they fit together.
+The directory layout maps onto the architecture: `DuckDuckGoApi.ts` is the thin
+DDG client at the root, and `image/` holds the strategy layer plus the result
+value object. See [architecture.md](architecture.md) for how they fit together.
 
 ## Commands at a Glance
 

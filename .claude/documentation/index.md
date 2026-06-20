@@ -31,7 +31,7 @@ How to build, type-check, lint, format, and publish: dual tsconfig setup, dual E
 
 ## [overview.md](overview.md)
 
-What ddg-search is: its stack, install steps, public API surface, a runnable usage example, and the project layout.
+What ddg-search is: its stack, install steps, the public API surface (low-level `DuckDuckGoApi` + `ImageSearchResult`), a runnable usage example, and the project layout.
 
 **Use when:**
 

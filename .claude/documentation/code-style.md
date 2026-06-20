@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-19T23:32:31Z"
+last_updated: "2026-06-20T00:04:08Z"
 related_docs: ["development.md", "architecture.md", "overview.md"]
 ---
 
@@ -34,9 +34,9 @@ never fight. When you change code, run both (`npm run format` then `npm run lint
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Folders | lowercase, hyphenated for multiword | `image-search/`, `api/`, `engine/`, `types/` |
+| Folders | lowercase, hyphenated for multiword | `src/`, `image/` |
 | Class files | PascalCase, match the class | `DuckDuckGoApi.ts`, `ImageSearchResult.ts` |
-| Classes / interfaces | PascalCase; interfaces prefixed `I` | `DuckDuckGoImageSearchEngine`, `IImageSearchEngine` |
+| Classes | PascalCase | `DuckDuckGoApi`, `DuckDuckGoImageSearch`, `ImageSearchResult` |
 | Methods / locals | camelCase | `generateToken`, `imageSearch`, `createSearchUrl` |
 | Private fields | `_camelCase` | `_api` |
 | Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`, `SEARCH_OPTIONS` |
@@ -151,8 +151,8 @@ declaration with explicit types where inference would be unclear.
 Relative imports include the **`.ts`** extension:
 
 ```ts
-import DuckDuckGoApi, { type DdgSearchOptions } from '../api/DuckDuckGoApi.ts';
-import ImageSearchResult from '../types/ImageSearchResult.ts';
+import DuckDuckGoApi, { type DdgSearchOptions } from '../DuckDuckGoApi.ts';
+import ImageSearchResult from './ImageSearchResult.ts';
 ```
 
 This works because `tsconfig.json` sets `allowImportingTsExtensions` +
@@ -160,15 +160,13 @@ This works because `tsconfig.json` sets `allowImportingTsExtensions` +
 so no post-processor is needed and `tsc -w` works. Other conventions:
 
 - `verbatimModuleSyntax` is on, so use `import type` / `export type` (or inline
-  `{ type X }`) for type-only imports (e.g.
-  `import type IImageSearchEngine from '../types/IImageSearchEngine.ts'`, and the
-  `{ type DdgSearchOptions }` above).
+  `{ type X }`) for type-only imports — e.g. the `{ type DdgSearchOptions }`
+  above, and `src/index.ts` re-exporting the `Ddg*` types with `export type`.
 - Node built-ins are imported as namespaces in `src/`: `import * as http from
   'http'`. Test files use the `node:` prefix, e.g. `node:test`,
   `node:assert/strict`.
 - Default export per file for classes; the barrel `src/index.ts` re-exports them
-  under their names and re-exports the `Ddg*` / interface types with
-  `export type`.
+  under their names and re-exports the `Ddg*` types with `export type`.
 
 ## Formatting Rules
 

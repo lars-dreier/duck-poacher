@@ -3,7 +3,7 @@ title: "Testing Guide"
 description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API, shared fixtures, and the naming/comment conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-06-19T23:32:31Z"
+last_updated: "2026-06-20T00:04:08Z"
 related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
 ---
 
@@ -28,7 +28,7 @@ There is no Jest, Vitest, Mocha, or assertion library.
 
 ```ts
 import assert from 'node:assert/strict';
-import { afterEach, describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 ```
 
 ## Running Tests
@@ -62,24 +62,25 @@ Consequences to keep in mind:
   buffers/decompresses the body with `HttpResponseReader`
   ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
 - **Assert on shape, not content.** Specs assert that a token matches `/^[\d-]+$/`,
-  that results are a non-empty array, that URLs are absolute http(s), that results
-  dedupe and cap at 100 — never on specific images, which change constantly.
-- **Generous timeouts.** Each request carries an explicit timeout (see
-  `NETWORK_TIMEOUT_MS`); the engine, which runs a token request plus several
-  searches sequentially, gets a multiple of it.
+  that results are a non-empty array, that URLs are absolute http(s), that the
+  engine's results dedupe and cap at 100 — never on specific images, which change
+  constantly.
+- **Generous timeouts.** Each request carries an explicit timeout
+  (`NETWORK_TIMEOUT_MS`); the engine spec, which runs a token request plus several
+  searches sequentially, uses a multiple of it (`NETWORK_TIMEOUT_MS * 4`).
 
 ## Test Layout
 
-`test/` mirrors `src/` one-to-one. Each source file has a sibling spec under the
-matching folder:
+`test/` mirrors `src/`. Each source file has a sibling spec under the matching
+folder:
 
 ```
 test/
-  TestHelper.ts                              shared fixtures (not a spec)
-  image-search/
-    api/DuckDuckGoApi.test.ts                live: token + image search
-    engine/DuckDuckGoImageSearchEngine.test.ts  live: search, dedupe, cap
-    types/ImageSearchResult.test.ts          offline: value object
+  TestHelper.ts                          shared fixtures (not a spec)
+  DuckDuckGoApi.test.ts                  live: token + image search
+  image/
+    DuckDuckGoImageSearch.test.ts        live: search, dedupe, cap
+    ImageSearchResult.test.ts            offline: value object
 ```
 
 Specs end in `.test.ts`; support files (shared fixtures) do not, so the glob skips
@@ -92,25 +93,27 @@ over hand-rolling values in each test:
 
 - `TEST_QUERY` — a stable, image-rich query (`'mountain landscape'`) so results are
   reliably non-empty across runs.
-- `NETWORK_TIMEOUT_MS` — the per-request budget passed as the `it` timeout option.
+- `NETWORK_TIMEOUT_MS` — the per-request budget (`30_000` ms) passed as the `it`
+  timeout option.
 - `assertHttpUrl(value, label)` — asserts a value is a non-empty absolute http(s)
   URL, used to validate every returned image and thumbnail URL.
 
 These are plain fixtures and assertions, not resources — there is nothing to tear
-down, so no `afterEach` cleanup is needed.
+down, so no `afterEach` cleanup is needed and none of the specs register one.
 
 ## Conventions
 
-- **Structure:** `describe` per class (and a nested `describe` per method),
-  `it` per behavior.
+- **Structure:** `describe` per class with a nested `describe` per method, and an
+  `it` per behavior (e.g. `describe('DuckDuckGoApi')` → `describe('generateToken')`
+  → `it(...)`).
 - **Given/When/Then:** each `it` body carries `// Given`, `// When`, `// Then`
   comments narrating the scenario. Follow this — it is consistent across the suite.
-- **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` (or a multiple) as the
-  `it` options argument on any spec that makes a request.
-- **Issue markers:** when a spec pins a specific regression, end its name with
-  `[#N]` referencing the issue.
-- **Async rejection:** use `assert.rejects(promise, /pattern/)` for expected
-  failures rather than try/catch.
+- **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` (or a multiple, like
+  the engine spec's `ENGINE_TIMEOUT_MS = NETWORK_TIMEOUT_MS * 4`) as the `it`
+  options argument on any spec that makes a request.
+- **Shape assertions:** use `assert.match` for the token (`/^[\d-]+$/`) and URLs,
+  `assert.ok`/`assert.equal` for array shape, and `new Set(imageUrls).size` to
+  prove the engine's results are unique.
 
 ## Type-Checking the Test Tree
 

@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-19T23:32:31Z"
+last_updated: "2026-06-20T00:04:08Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -24,7 +24,7 @@ related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ## Prerequisites
 
 Node.js (build target is `node18`; `@types/node` is v25) and npm. Install with
-`npm install`. 
+`npm install`.
 
 ## The Build (tsdown)
 
@@ -51,8 +51,9 @@ includes `src` + `test`). See [testing.md](testing.md#type-checking-the-test-tre
 
 `tsconfig.json` is strict and then some: `strict`, `noUncheckedIndexedAccess`,
 `exactOptionalPropertyTypes`, `noImplicitOverride`, `noUnusedLocals`,
-`verbatimModuleSyntax`, `isolatedModules`. Source authored with `.ts` import
-extensions relies on `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`.
+`verbatimModuleSyntax`, `isolatedModules`, plus `noUncheckedSideEffectImports`
+and a forced `moduleDetection`. Source authored with `.ts` import extensions
+relies on `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`.
 
 ## Lint and Format
 
@@ -75,9 +76,10 @@ Run it after changing `package.json` `exports`, the build format, or the barrel.
 
 ## Publishing
 
-`prepublishOnly` chains `typecheck` → `build` → `check:exports`, so `npm publish`
-will not proceed unless types pass, the build succeeds, and the export map
-validates. The package is ESM-first (`"type": "module"`) but ships CJS too.
+`prepublishOnly` chains `npm test` → `typecheck` → `build` → `check:exports`, so
+`npm publish` will not proceed unless the live tests pass, types pass, the build
+succeeds, and the export map validates. The package is ESM-first
+(`"type": "module"`) but ships CJS too.
 
 ## Typical Loops
 
@@ -90,14 +92,16 @@ validates. The package is ESM-first (`"type": "module"`) but ships CJS too.
 ## Common Pitfalls
 
 - **Forgetting `.ts` in imports.** Relative imports must include `.ts` (e.g.
-  `'../api/DuckDuckGoApi.ts'`). Omitting it fails under this tsconfig.
+  `'./DuckDuckGoApi.ts'` from a sibling, `'../image/ImageSearchResult.ts'` from a
+  subdirectory). Omitting it fails under this tsconfig.
 - **Using a TypeScript `enum`.** Banned by ESLint — use a string-literal union
   (or the const-object pattern when you need a runtime value)
   ([code-style.md](code-style.md#closed-string-sets-no-ts-enum)).
 - **Adding a second class to a file.** `max-classes-per-file` is an error; the
-  engine's internal `Prioritized*` / `Ddg*` shapes are `interface`s for exactly
-  this reason. Create a new PascalCase file (and export it from the barrel if it
-  is public) when you need another class.
+  engine's internal `PrioritizedSearchOption` / `PrioritizedResult` / `DdgResponse`
+  / `DdgResult` shapes are `interface`s for exactly this reason. Create a new
+  PascalCase file (and export it from the barrel if it is public) when you need
+  another class.
 - **Floating promises in `src/`.** `no-floating-promises` is an error in source.
   No current `src/` code fires-and-forgets; if you ever need to, `void` the call
   deliberately. The rule is off only for `test/` (where `node:test`'s
@@ -109,6 +113,8 @@ validates. The package is ESM-first (`"type": "module"`) but ships CJS too.
   failure may mean DDG changed, not that your code broke. See
   [testing.md](testing.md#live-integration-tests).
 - **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
-  The barrel re-exports only the public surface (the two classes,
-  `ImageSearchResult`, and the `Ddg*` / `IImageSearchEngine` types); the engine's
-  private helpers and internal interfaces stay unexported.
+  The barrel exports only the public surface: `DuckDuckGoApi`, `ImageSearchResult`,
+  and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`, `DdgSearchOptions`,
+  `DdgSize`, `DdgTime`, `DdgType`). The engine `DuckDuckGoImageSearch` and its
+  internal interfaces (`PrioritizedSearchOption`, `PrioritizedResult`,
+  `DdgResponse`, `DdgResult`) stay unexported.
