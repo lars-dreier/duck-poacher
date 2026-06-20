@@ -1,6 +1,6 @@
 {
 	"name": "duck-poacher",
-	"version": "1.0.0",
+	"version": "0.6.0",
 	"description": "DuckDuckGo image search scraper for Node.js.",
 	"type": "module",
 	"types": "./dist/index.d.mts",
