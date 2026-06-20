@@ -1,4 +1,4 @@
-# ddg-search
+# duck-poacher
 
 A Node.js library for image search via DuckDuckGo. Returns image and thumbnail
 URLs for a query, with optional filters for size, color, type, and more.
@@ -9,7 +9,7 @@ API. Response formats can change on DuckDuckGo's side and break the library.
 ## Install
 
 ```sh
-npm install ddg-search
+npm install duck-poacher
 ```
 
 Requires Node.js 18 or newer. The package ships dual ESM/CJS and exposes both an
@@ -17,15 +17,15 @@ Requires Node.js 18 or newer. The package ships dual ESM/CJS and exposes both an
 
 ## Usage
 
-`DdgClient` is the client. Construct one and call `imageSearch` — it returns a
+`DuckDuckGo` is the client. Construct one and call `imageSearch` — it returns a
 parsed `ImageSearchResult[]` (objects with `imageUrl` / `thumbnailUrl`, not a raw
 string) and manages the per-session `vqd` token for you, so there is no token to
 pass.
 
 ```ts
-import { DdgClient, type DdgSearchOptions, type ImageSearchResult } from 'ddg-search';
+import { DuckDuckGo, type DdgSearchOptions, type ImageSearchResult } from 'duck-poacher';
 
-const ddg = new DdgClient();
+const ddg = new DuckDuckGo();
 
 const options: DdgSearchOptions = {
   size: 'Large',
@@ -46,12 +46,12 @@ built-in multi-query, dedupe, or cap.
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DdgClient` | class | The client: `imageSearch(query, options?)`, token managed internally |
+| `DuckDuckGo` | class | The client: `imageSearch(query, options?)`, token managed internally |
 | `ImageSearchResult` | class | Immutable value object `{ thumbnailUrl, imageUrl }` |
 | `DdgSearchOptions` | type | Filter options for `imageSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
-### `DdgClient`
+### `DuckDuckGo`
 
 - **`imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]>`**
   — generates a per-session `vqd` token, runs the image search, and returns the
