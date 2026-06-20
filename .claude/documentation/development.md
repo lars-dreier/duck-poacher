@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-20T09:58:00Z"
+last_updated: "2026-06-20T10:21:54Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -92,7 +92,7 @@ succeeds, and the export map validates. The package is ESM-first
 ## Common Pitfalls
 
 - **Forgetting `.ts` in imports.** Relative imports must include `.ts` (e.g.
-  `'./DdgClient.ts'` from the barrel, `'./image/ImageSearchClient.ts'` from a
+  `'./DuckDuckGo.ts'` from the barrel, `'./image/ImageSearchClient.ts'` from a
   subdirectory, `'./ImageSearchResult.ts'` from a sibling). Omitting it fails
   under this tsconfig.
 - **Using a TypeScript `enum`.** Banned by ESLint — use a string-literal union
@@ -113,8 +113,8 @@ succeeds, and the export map validates. The package is ESM-first
   failure may mean DDG changed, not that your code broke. See
   [testing.md](testing.md#live-integration-tests).
 - **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
-  The barrel exports only the public surface: `DdgClient`, `ImageSearchResult`,
+  The barrel exports only the public surface: `DuckDuckGo`, `ImageSearchResult`,
   and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`, `DdgSearchOptions`,
   `DdgSize`, `DdgTime`, `DdgType`). The `ImageSearchClient`, `ImageSearchParser`,
   and the parser's internal interfaces (`DdgResponse`, `DdgResult`) stay
-  unexported — callers get parsed results back from `DdgClient.imageSearch`.
+  unexported — callers get parsed results back from `DuckDuckGo.imageSearch`.

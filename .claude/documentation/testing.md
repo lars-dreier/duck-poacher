@@ -3,7 +3,7 @@ title: "Testing Guide"
 description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API, the offline parser/value-object specs, shared fixtures, and conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-06-20T09:58:00Z"
+last_updated: "2026-06-20T10:21:54Z"
 related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
 ---
 
@@ -47,12 +47,12 @@ This package is a thin scraper over DuckDuckGo's undocumented image endpoints, s
 the tests that matter **hit the real DDG API** rather than mocking it. There is no
 local HTTP server, no recorded fixture for the network layer, and no test double
 for it — those would only prove the code calls itself, not that it still works
-against a live, drifting target. The `DdgClient` and `ImageSearchClient` specs are the live-network
+against a live, drifting target. The `DuckDuckGo` and `ImageSearchClient` specs are the live-network
 validation; the parser and value-object specs run offline.
 
 Consequences to keep in mind:
 
-- **Network is required for the API specs.** `DdgClient.test.ts` and
+- **Network is required for the API specs.** `DuckDuckGo.test.ts` and
   `ImageSearchClient.test.ts` hit the live DuckDuckGo API and fail without
   connectivity. The two offline specs — `ImageSearchParser.test.ts` (parses a
   fixture JSON string) and `ImageSearchResult.test.ts` (a pure value object) —
@@ -81,7 +81,7 @@ folder:
 ```
 test/
   TestHelper.ts                              shared fixtures (not a spec)
-  DdgClient.test.ts                          live: public facade → imageSearch
+  DuckDuckGo.test.ts                          live: public facade → imageSearch
   image/
     ImageSearchClient.test.ts                live: token generation + search
     ImageSearchParser.test.ts                offline: JSON-string → result mapping
@@ -111,12 +111,12 @@ offline parser spec builds its own fixture inline (a `JSON.stringify`'d
 ## Conventions
 
 - **Structure:** `describe` per class with a nested `describe` per method, and an
-  `it` per behavior (e.g. `describe('DdgClient')` → `describe('imageSearch')`
+  `it` per behavior (e.g. `describe('DuckDuckGo')` → `describe('imageSearch')`
   → `it(...)`; `describe('ImageSearchClient')` → `describe('generateToken')` → `it(...)`).
 - **Given/When/Then:** each `it` body carries `// Given`, `// When`, `// Then`
   comments narrating the scenario. Follow this — it is consistent across the suite.
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options
-  argument on any spec that makes a request (`DdgClient.test.ts` and
+  argument on any spec that makes a request (`DuckDuckGo.test.ts` and
   `ImageSearchClient.test.ts`); omit it on the offline specs (`ImageSearchParser.test.ts`,
   `ImageSearchResult.test.ts`).
 - **Shape assertions:** use `assert.match` for the token (`/^[\d-]+$/`),

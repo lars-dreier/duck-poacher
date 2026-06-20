@@ -1,9 +1,9 @@
 ---
 title: "Architecture & Internals"
-description: "How ddg-search works inside: the DdgClient facade, ImageSearchClient implementation, the token→search→parse flow, DdgSearchOptions encoding, data models, and DuckDuckGo protocol quirks."
+description: "How duck-poacher works inside: the DuckDuckGo facade, ImageSearchClient implementation, the token→search→parse flow, DdgSearchOptions encoding, data models, and DuckDuckGo protocol quirks."
 category: "architecture"
 tags: ["architecture", "design", "ddg", "search-strategy", "data-flow", "internals"]
-last_updated: "2026-06-20T09:58:00Z"
+last_updated: "2026-06-20T10:21:54Z"
 related_docs: ["overview.md", "code-style.md", "testing.md"]
 ---
 
@@ -12,7 +12,7 @@ related_docs: ["overview.md", "code-style.md", "testing.md"]
 ## Table of Contents
 1. [Client Layers and Parser](#client-layers-and-parser)
 2. [End-to-End Flow](#end-to-end-flow)
-3. [The Facade: DdgClient](#the-facade-ddgclient)
+3. [The Facade: DuckDuckGo](#the-facade-duckduckgo)
 4. [The Implementation: ImageSearchClient](#the-implementation-imagesearchclient)
    - [Token Generation](#token-generation)
    - [Image Search and Option Encoding](#image-search-and-option-encoding)
@@ -29,14 +29,14 @@ The library is organized in two client layers plus a small parser:
 
 | Class | File | Responsibility | Role |
 |-------|------|-----------------|------|
-| `DdgClient` | `src/DdgClient.ts` | Public entry point; orchestrates token generation and search | Facade |
+| `DuckDuckGo` | `src/DuckDuckGo.ts` | Public entry point; orchestrates token generation and search | Facade |
 | `ImageSearchClient` | `src/image/ImageSearchClient.ts` | HTTP communication, token scraping, option encoding, parser ownership | Implementation |
 | `ImageSearchParser` | `src/image/ImageSearchParser.ts` | Parse DDG JSON response into result objects | Data transformation |
 
-**DdgClient** is a thin facade that callers import and use. It owns a single private instance of `ImageSearchClient` and delegates all work to it:
+**DuckDuckGo** is a thin facade that callers import and use. It owns a single private instance of `ImageSearchClient` and delegates all work to it:
 
 ```ts
-export default class DdgClient {
+export default class DuckDuckGo {
 	private readonly _imageSearch = new ImageSearchClient();
 
 	public async imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]> {
@@ -54,21 +54,21 @@ This separation of concerns keeps the public API minimal and clean while the imp
 
 ## End-to-End Flow
 
-A search drives two HTTP steps, orchestrated by `DdgClient`:
+A search drives two HTTP steps, orchestrated by `DuckDuckGo`:
 
 ```
-DdgClient.imageSearch(query, options?)
+DuckDuckGo.imageSearch(query, options?)
   ├─ ImageSearchClient.generateToken(query)  1 HTTP GET → vqd token
   └─ ImageSearchClient.imageSearch(query, token, options?)
       └─ 1 HTTP GET → raw JSON body
          └─ _parser.parse(body)  → ImageSearchResult[]
 ```
 
-So one `DdgClient.imageSearch` makes two sequential HTTP requests against live DuckDuckGo (mint the token, then search), and its result is already parsed. There is no internal multi-request fan-out, dedupe, or cap — a caller that wants those composes them on top.
+So one `DuckDuckGo.imageSearch` makes two sequential HTTP requests against live DuckDuckGo (mint the token, then search), and its result is already parsed. There is no internal multi-request fan-out, dedupe, or cap — a caller that wants those composes them on top.
 
-## The Facade: DdgClient
+## The Facade: DuckDuckGo
 
-`src/DdgClient.ts`. The public entry point, responsible for orchestrating the two-step search process. It exposes a single public method:
+`src/DuckDuckGo.ts`. The public entry point, responsible for orchestrating the two-step search process. It exposes a single public method:
 
 ```ts
 public async imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]>
@@ -79,7 +79,7 @@ This method:
 2. Calls `this._imageSearch.imageSearch(query, token, options)` with that token.
 3. Returns the parsed results.
 
-Callers import and use `DdgClient`; they never touch `ImageSearchClient` directly.
+Callers import and use `DuckDuckGo`; they never touch `ImageSearchClient` directly.
 
 ## The Implementation: ImageSearchClient
 
@@ -95,7 +95,7 @@ DuckDuckGo's image endpoint requires a per-session `vqd` token that is not hande
 4. Scrapes the token with `TOKEN_REGEX = /vqd=(?<vqd>[\d-]+)/`.
 5. Throws if no match; otherwise returns the captured `vqd` string.
 
-The token is a string of digits and dashes (the live test asserts `/^[\d-]+$/`). It must be passed to every subsequent `imageSearch` call (in normal usage, the `DdgClient.imageSearch` facade handles this internally).
+The token is a string of digits and dashes (the live test asserts `/^[\d-]+$/`). It must be passed to every subsequent `imageSearch` call (in normal usage, the `DuckDuckGo.imageSearch` facade handles this internally).
 
 ### Image Search and Option Encoding
 
@@ -159,10 +159,10 @@ class ImageSearchResult {
 
 `ImageSearchResult` is immutable (both fields `readonly`, set via constructor parameter properties). Note the **constructor argument order is `thumbnailUrl, imageUrl`** but the parser maps from DDG's `{ image, thumbnail }` — `new ImageSearchResult(result.thumbnail, result.image)`. Keep that mapping straight when touching either side.
 
-`src/index.ts` re-exports `DdgClient`, `ImageSearchResult`, and the `Ddg*` types:
+`src/index.ts` re-exports `DuckDuckGo`, `ImageSearchResult`, and the `Ddg*` types:
 
 ```ts
-export { default as DdgClient } from './DdgClient.ts';
+export { default as DuckDuckGo } from './DuckDuckGo.ts';
 export type {
 	DdgColor,
 	DdgLayout,
@@ -175,7 +175,7 @@ export type {
 export { default as ImageSearchResult } from './image/ImageSearchResult.ts';
 ```
 
-`ImageSearchParser` and `ImageSearchClient` live in the source tree but are not exported from the barrel (see [overview.md](overview.md#public-api)), since callers receive parsed results from `DdgClient.imageSearch` and never need either directly.
+`ImageSearchParser` and `ImageSearchClient` live in the source tree but are not exported from the barrel (see [overview.md](overview.md#public-api)), since callers receive parsed results from `DuckDuckGo.imageSearch` and never need either directly.
 
 ## DuckDuckGo Protocol Quirks
 
@@ -193,4 +193,4 @@ The package **fails fast** and throws rather than logging or swallowing:
 
 - `generateToken` throws `Error('Unable to read token from DuckDuckGo response.')` when the regex finds no `vqd`.
 - HTTP-level failures (status ≥ 400, network errors, timeouts) reject from the underlying `node-http-toolkit` request and propagate out of `generateToken` or `imageSearch`.
-- `ImageSearchParser.parse` does not guard its input: a non-JSON body throws from `JSON.parse`, and a response missing `results` throws when it is iterated. Both propagate to the `imageSearch` caller (through `DdgClient`). This is deliberate — a malformed response is a real failure, not something to paper over.
+- `ImageSearchParser.parse` does not guard its input: a non-JSON body throws from `JSON.parse`, and a response missing `results` throws when it is iterated. Both propagate to the `imageSearch` caller (through `DuckDuckGo`). This is deliberate — a malformed response is a real failure, not something to paper over.

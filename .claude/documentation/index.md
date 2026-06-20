@@ -2,12 +2,12 @@
 
 ## [architecture.md](architecture.md)
 
-How ddg-search works inside: the `DdgClient` facade over `ImageSearchClient` plus `ImageSearchParser`, the token→search→parse flow, option encoding, data models, and DuckDuckGo protocol quirks.
+How duck-poacher works inside: the `DuckDuckGo` facade over `ImageSearchClient` plus `ImageSearchParser`, the token→search→parse flow, option encoding, data models, and DuckDuckGo protocol quirks.
 
 **Use when:**
 
 - Changing search behavior, option encoding, or response parsing
-- Understanding how DdgClient delegates to ImageSearchClient and ImageSearchParser
+- Understanding how DuckDuckGo delegates to ImageSearchClient and ImageSearchParser
 - Debugging DuckDuckGo protocol quirks or error handling
 
 ## [code-style.md](code-style.md)
@@ -31,7 +31,7 @@ How to build, type-check, lint, format, and publish: dual tsconfig setup, dual E
 
 ## [overview.md](overview.md)
 
-What ddg-search is: its stack, install steps, the public API surface (`DdgClient` + `ImageSearchResult`), a runnable usage example, and the project layout.
+What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo` + `ImageSearchResult`), a runnable usage example, and the project layout.
 
 **Use when:**
 
@@ -41,7 +41,7 @@ What ddg-search is: its stack, install steps, the public API surface (`DdgClient
 
 ## [testing.md](testing.md)
 
-How the test suite is structured and run: the node:test runner via tsx, the live `DdgClient`/`ImageSearchClient` integration specs, the offline parser/value-object specs, shared fixtures, and conventions.
+How the test suite is structured and run: the node:test runner via tsx, the live `DuckDuckGo`/`ImageSearchClient` integration specs, the offline parser/value-object specs, shared fixtures, and conventions.
 
 **Use when:**
 

@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-20T09:58:00Z"
+last_updated: "2026-06-20T10:21:54Z"
 related_docs: ["development.md", "architecture.md", "overview.md"]
 ---
 
@@ -35,17 +35,19 @@ never fight. When you change code, run both (`npm run format` then `npm run lint
 | Element | Convention | Example |
 |---------|-----------|---------|
 | Folders | lowercase, hyphenated for multiword | `src/`, `image/` |
-| Class files | PascalCase, match the class | `DdgClient.ts`, `ImageSearchClient.ts`, `ImageSearchResult.ts` |
-| Classes | PascalCase | `DdgClient`, `ImageSearchClient`, `ImageSearchParser`, `ImageSearchResult` |
+| Class files | PascalCase, match the class | `DuckDuckGo.ts`, `ImageSearchClient.ts`, `ImageSearchResult.ts` |
+| Classes | PascalCase | `DuckDuckGo`, `ImageSearchClient`, `ImageSearchParser`, `ImageSearchResult` |
 | Methods / locals | camelCase | `generateToken`, `imageSearch`, `createSearchUrl` |
 | Private fields | `_camelCase` | `_parser`, `_imageSearch` |
 | Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX` |
 
 **Acronyms are treated as ordinary words in identifiers — never all-caps.**
 Capitalize only the first letter and lowercase the rest: `Api` not `API`, `Ddg`
-not `DDG`, `Url` not `URL`, `Json` not `JSON`. So the client class is `DdgClient`,
-the option types are `DdgSearchOptions` / `DdgSize`, and a helper is
-`assertHttpUrl`.
+not `DDG`, `Url` not `URL`, `Json` not `JSON`. So the option types are
+`DdgSearchOptions` / `DdgSize`, and a helper is `assertHttpUrl`. (The facade class
+is spelled `DuckDuckGo` in full — the brand is written out, not abbreviated, so it
+sidesteps the acronym rule entirely; the `Ddg` short form survives only in the
+option types.)
 
 **Spell the protocol `Http`, never `HTTP`.** This is the most common case of the
 rule above: every class, file, and identifier uses `Http...` (e.g. `HttpError`,
@@ -121,7 +123,7 @@ including the constructor. Enforced:
 '@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'explicit' }]
 ```
 
-In `DdgClient`, the owned implementation client is a `private readonly` field
+In `DuckDuckGo`, the owned implementation client is a `private readonly` field
 (`_imageSearch`) and the single entry point is `public` (`imageSearch`).
 In `ImageSearchClient`, configuration constants are `private readonly`
 (`OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`), the two entry points are
@@ -135,7 +137,7 @@ State is held in `private` `_`-prefixed fields. The facade's owned implementatio
 client and the implementation's owned parser are the examples:
 
 ```ts
-// DdgClient owns the implementation client
+// DuckDuckGo owns the implementation client
 private readonly _imageSearch = new ImageSearchClient();
 
 // ImageSearchClient owns the parser
@@ -179,7 +181,7 @@ ImageSearchResult from './ImageSearchResult.ts';`). This works because
   'http'`. Test files use the `node:` prefix, e.g. `node:test`,
   `node:assert/strict`.
 - Default export per file for classes; the barrel `src/index.ts` re-exports them
-  under their names (`export { default as DdgClient }`) and re-exports the `Ddg*`
+  under their names (`export { default as DuckDuckGo }`) and re-exports the `Ddg*`
   types with `export type`.
 
 ## Formatting Rules
