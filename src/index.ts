@@ -1,4 +1,4 @@
-export { default as DuckDuckGoApi } from './DuckDuckGoApi.ts';
+export { default as DdgClient } from './DdgClient.ts';
 export type {
 	DdgColor,
 	DdgLayout,
@@ -7,5 +7,5 @@ export type {
 	DdgSize,
 	DdgTime,
 	DdgType
-} from './DuckDuckGoApi.ts';
+} from './image/ImageSearchClient.ts';
 export { default as ImageSearchResult } from './image/ImageSearchResult.ts';

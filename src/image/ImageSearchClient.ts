@@ -1,7 +1,7 @@
 import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
-import ImageSearchParser from './image/ImageSearchParser.ts';
-import type ImageSearchResult from './image/ImageSearchResult.ts';
+import ImageSearchParser from './ImageSearchParser.ts';
+import type ImageSearchResult from './ImageSearchResult.ts';
 
 export type DdgTime = 'Day' | 'Week' | 'Month';
 export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
@@ -20,7 +20,7 @@ export interface DdgSearchOptions {
 	safeSearch?: boolean;
 }
 
-export default class DuckDuckGoApi {
+export default class ImageSearchClient {
 	// Order is important
 	private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
 
@@ -53,10 +53,7 @@ export default class DuckDuckGoApi {
 		params.append('ia', 'images');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
-		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, this.TOKEN_HEADERS);
-		const response: http.IncomingMessage = await request.resolve();
-		const reader = new HttpResponseReader();
-		const data: string = await reader.readData(response);
+		const data: string = await this.get(url, this.TOKEN_HEADERS);
 		const match: RegExpMatchArray | null = data.match(this.TOKEN_REGEX);
 		const vqd: string | undefined = match?.groups?.['vqd'];
 
@@ -74,13 +71,17 @@ export default class DuckDuckGoApi {
 	): Promise<ImageSearchResult[]> {
 		const searchOptions: DdgSearchOptions = options ?? {};
 		const url: string = this.createSearchUrl(query, token, searchOptions);
-
-		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, this.SEARCH_HEADERS);
-		const response: http.IncomingMessage = await request.resolve();
-		const reader = new HttpResponseReader();
-		const responseText: string = await reader.readData(response);
+		const responseText: string = await this.get(url, this.SEARCH_HEADERS);
 
 		return this._parser.parse(responseText);
+	}
+
+	private async get(url: string, headers: http.OutgoingHttpHeaders): Promise<string> {
+		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, headers);
+		const response: http.IncomingMessage = await request.resolve();
+		const reader = new HttpResponseReader();
+
+		return reader.readData(response);
 	}
 
 	private createSearchUrl(query: string, token: string, options: DdgSearchOptions): string {

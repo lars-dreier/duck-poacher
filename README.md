@@ -17,55 +17,46 @@ Requires Node.js 18 or newer. The package ships dual ESM/CJS and exposes both an
 
 ## Usage
 
-`DuckDuckGoApi` is the low-level client. Generate a per-session token, then run a
-search — `imageSearch` returns the **raw JSON string** from DuckDuckGo, so you
-parse and shape it yourself.
+`DdgClient` is the client. Construct one and call `imageSearch` — it returns a
+parsed `ImageSearchResult[]` (objects with `imageUrl` / `thumbnailUrl`, not a raw
+string) and manages the per-session `vqd` token for you, so there is no token to
+pass.
 
 ```ts
-import { DuckDuckGoApi, ImageSearchResult, type DdgSearchOptions } from 'ddg-search';
+import { DdgClient, type DdgSearchOptions, type ImageSearchResult } from 'ddg-search';
 
-const api = new DuckDuckGoApi();
-const token = await api.generateToken('mountain landscape');
+const ddg = new DdgClient();
 
 const options: DdgSearchOptions = {
   size: 'Large',
   layout: 'Square',
   safeSearch: true,
 };
-const rawJson = await api.imageSearch('mountain landscape', token, options);
+const results: ImageSearchResult[] = await ddg.imageSearch('mountain landscape', options);
 
-// raw DDG shape: { results: [{ image, thumbnail }] }
-const { results } = JSON.parse(rawJson) as {
-  results: { image: string; thumbnail: string }[];
-};
-
-for (const { image, thumbnail } of results) {
-  const result = new ImageSearchResult(thumbnail, image);
+for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
 }
 ```
 
-Note the `ImageSearchResult` constructor order is `(thumbnailUrl, imageUrl)`,
-while DDG returns `{ image, thumbnail }` — map accordingly.
+Each call makes two live requests (mint the token, then search). There is no
+built-in multi-query, dedupe, or cap.
 
 ## API
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGoApi` | class | Low-level client: token generation + raw-JSON image search |
+| `DdgClient` | class | The client: `imageSearch(query, options?)`, token managed internally |
 | `ImageSearchResult` | class | Immutable value object `{ thumbnailUrl, imageUrl }` |
 | `DdgSearchOptions` | type | Filter options for `imageSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
-### `DuckDuckGoApi`
+### `DdgClient`
 
-- **`generateToken(query: string): Promise<string>`** — fetches the DuckDuckGo
-  search page and scrapes the per-session `vqd` token from it. Throws
-  `Error('Unable to read token from DuckDuckGo response.')` if no token is
-  found. The token must be passed to every subsequent `imageSearch` call.
-- **`imageSearch(query: string, token: string, options?: DdgSearchOptions): Promise<string>`**
-  — runs the image search and returns the response body verbatim as a string.
-  Does not parse JSON.
+- **`imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]>`**
+  — generates a per-session `vqd` token, runs the image search, and returns the
+  parsed results. Throws `Error('Unable to read token from DuckDuckGo response.')`
+  if the token cannot be scraped; a malformed response body throws.
 
 ### `DdgSearchOptions`
 
