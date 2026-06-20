@@ -37,7 +37,22 @@
 		"format": "dprint fmt",
 		"format:check": "dprint check"
 	},
-	"keywords": [],
+	"keywords": [
+		"duckduckgo",
+		"image-search",
+		"images",
+		"search",
+		"scraper",
+		"scraping"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lars-dreier/duck-poacher.git"
+	},
+	"bugs": {
+		"url": "https://github.com/lars-dreier/duck-poacher/issues"
+	},
+	"homepage": "https://github.com/lars-dreier/duck-poacher#readme",
 	"author": {
 		"name": "Lars Dreier",
 		"email": "ldreier@posteo.de"
