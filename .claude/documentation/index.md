@@ -2,12 +2,12 @@
 
 ## [architecture.md](architecture.md)
 
-How ddg-search works inside: the two-layer API/Engine design, the token→search→parse→prioritize→dedupe→cap flow, option encoding, data models, and DuckDuckGo protocol quirks.
+How ddg-search works inside: the DuckDuckGoApi client plus the ImageSearchParser, the token→search→parse flow, option encoding, data models, and DuckDuckGo protocol quirks.
 
 **Use when:**
 
-- Changing search behavior, parsing, prioritization, or dedupe logic
-- Understanding the API vs Engine layers or DdgSearchOptions encoding
+- Changing search behavior, option encoding, or response parsing
+- Understanding how DuckDuckGoApi delegates to ImageSearchParser
 - Debugging DuckDuckGo protocol quirks or error handling
 
 ## [code-style.md](code-style.md)
@@ -31,7 +31,7 @@ How to build, type-check, lint, format, and publish: dual tsconfig setup, dual E
 
 ## [overview.md](overview.md)
 
-What ddg-search is: its stack, install steps, the public API surface (low-level `DuckDuckGoApi` + `ImageSearchResult`), a runnable usage example, and the project layout.
+What ddg-search is: its stack, install steps, the public API surface (`DuckDuckGoApi` + `ImageSearchResult`), a runnable usage example, and the project layout.
 
 **Use when:**
 
@@ -41,7 +41,7 @@ What ddg-search is: its stack, install steps, the public API surface (low-level 
 
 ## [testing.md](testing.md)
 
-How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API, shared fixtures, and conventions.
+How the test suite is structured and run: the node:test runner via tsx, the live DuckDuckGoApi integration spec, the offline parser/value-object specs, shared fixtures, and conventions.
 
 **Use when:**
 

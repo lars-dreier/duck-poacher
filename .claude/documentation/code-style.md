@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-20T00:04:08Z"
+last_updated: "2026-06-20T09:17:12Z"
 related_docs: ["development.md", "architecture.md", "overview.md"]
 ---
 
@@ -36,10 +36,10 @@ never fight. When you change code, run both (`npm run format` then `npm run lint
 |---------|-----------|---------|
 | Folders | lowercase, hyphenated for multiword | `src/`, `image/` |
 | Class files | PascalCase, match the class | `DuckDuckGoApi.ts`, `ImageSearchResult.ts` |
-| Classes | PascalCase | `DuckDuckGoApi`, `DuckDuckGoImageSearch`, `ImageSearchResult` |
+| Classes | PascalCase | `DuckDuckGoApi`, `ImageSearchParser`, `ImageSearchResult` |
 | Methods / locals | camelCase | `generateToken`, `imageSearch`, `createSearchUrl` |
-| Private fields | `_camelCase` | `_api` |
-| Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`, `SEARCH_OPTIONS` |
+| Private fields | `_camelCase` | `_parser` |
+| Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX` |
 
 **Acronyms are treated as ordinary words in identifiers — never all-caps.**
 Capitalize only the first letter and lowercase the rest: `Api` not `API`, `Ddg`
@@ -68,7 +68,9 @@ filename matches that class. Enforced by ESLint:
 
 `ignoreExpressions` allows small inline/anonymous classes without tripping the
 rule. The public barrel `src/index.ts` is the one file with many exports — it
-only re-exports, it defines nothing.
+only re-exports, it defines nothing. The parser's internal `DdgResponse` /
+`DdgResult` shapes co-exist with `ImageSearchParser` in one file because they are
+`interface`s, not classes, so the rule does not count them.
 
 ## Closed String Sets (no TS `enum`)
 
@@ -125,11 +127,11 @@ available for subclass seams but is not currently used anywhere in `src/`.
 
 ## Private Fields and Constructor Properties
 
-State is held in `private` `_`-prefixed fields. The engine's owned API client is
-the example:
+State is held in `private` `_`-prefixed fields. The client's owned parser is the
+example:
 
 ```ts
-private readonly _api = new DuckDuckGoApi();
+private readonly _parser = new ImageSearchParser();
 ```
 
 Immutable public data uses **constructor parameter properties** rather than a
@@ -151,17 +153,20 @@ declaration with explicit types where inference would be unclear.
 Relative imports include the **`.ts`** extension:
 
 ```ts
-import DuckDuckGoApi, { type DdgSearchOptions } from '../DuckDuckGoApi.ts';
-import ImageSearchResult from './ImageSearchResult.ts';
+import ImageSearchParser from './image/ImageSearchParser.ts';
+import type ImageSearchResult from './image/ImageSearchResult.ts';
 ```
 
-This works because `tsconfig.json` sets `allowImportingTsExtensions` +
-`rewriteRelativeImportExtensions` — the compiler rewrites `.ts` to `.js` on emit,
-so no post-processor is needed and `tsc -w` works. Other conventions:
+(and from a subdirectory, e.g. inside the parser: `import ImageSearchResult from
+'./ImageSearchResult.ts';`). This works because `tsconfig.json` sets
+`allowImportingTsExtensions` + `rewriteRelativeImportExtensions` — the compiler
+rewrites `.ts` to `.js` on emit, so no post-processor is needed and `tsc -w`
+works. Other conventions:
 
 - `verbatimModuleSyntax` is on, so use `import type` / `export type` (or inline
-  `{ type X }`) for type-only imports — e.g. the `{ type DdgSearchOptions }`
-  above, and `src/index.ts` re-exporting the `Ddg*` types with `export type`.
+  `{ type X }`) for type-only imports — e.g. the `import type ImageSearchResult`
+  above (the client uses the class only as a return type), and `src/index.ts`
+  re-exporting the `Ddg*` types with `export type`.
 - Node built-ins are imported as namespaces in `src/`: `import * as http from
   'http'`. Test files use the `node:` prefix, e.g. `node:test`,
   `node:assert/strict`.

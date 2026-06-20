@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import DuckDuckGoApi from '../src/DuckDuckGoApi.ts';
-import { NETWORK_TIMEOUT_MS, TEST_QUERY } from './TestHelper.ts';
-
-interface RawDdgResponse {
-	results: Array<{ image: string; thumbnail: string }>;
-}
+import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from './TestHelper.ts';
 
 describe('DuckDuckGoApi', () => {
 	describe('generateToken', () => {
@@ -23,23 +19,20 @@ describe('DuckDuckGoApi', () => {
 	});
 
 	describe('imageSearch', () => {
-		it('returns parseable JSON with image results', { timeout: NETWORK_TIMEOUT_MS }, async () => {
+		it('returns parsed image results with valid URLs', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given a valid token for the query
 			const api = new DuckDuckGoApi();
 			const token: string = await api.generateToken(TEST_QUERY);
 
 			// When an image search is performed
-			const responseText: string = await api.imageSearch(TEST_QUERY, token);
+			const results = await api.imageSearch(TEST_QUERY, token);
 
-			// Then the response parses to a non-empty results array of image/thumbnail pairs
-			const parsed = JSON.parse(responseText) as RawDdgResponse;
-			assert.ok(Array.isArray(parsed.results), 'results should be an array');
-			assert.ok(parsed.results.length > 0, 'results should not be empty');
-
-			const first = parsed.results[0];
-			assert.ok(first !== undefined);
-			assert.equal(typeof first.image, 'string');
-			assert.equal(typeof first.thumbnail, 'string');
+			// Then it returns a non-empty list, each with valid thumbnail and image URLs
+			assert.ok(results.length > 0, 'results should not be empty');
+			for (const result of results) {
+				assertHttpUrl(result.imageUrl, 'imageUrl');
+				assertHttpUrl(result.thumbnailUrl, 'thumbnailUrl');
+			}
 		});
 
 		it('applies search options without error', { timeout: NETWORK_TIMEOUT_MS }, async () => {
@@ -48,15 +41,14 @@ describe('DuckDuckGoApi', () => {
 			const token: string = await api.generateToken(TEST_QUERY);
 
 			// When searching with size, layout and safe-search constraints
-			const responseText: string = await api.imageSearch(TEST_QUERY, token, {
+			const results = await api.imageSearch(TEST_QUERY, token, {
 				size: 'Large',
 				layout: 'Square',
 				safeSearch: true
 			});
 
-			// Then a parseable response is still returned
-			const parsed = JSON.parse(responseText) as RawDdgResponse;
-			assert.ok(Array.isArray(parsed.results));
+			// Then a parsed result list is still returned
+			assert.ok(Array.isArray(results));
 		});
 	});
 });

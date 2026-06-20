@@ -1,68 +1,73 @@
 ---
 title: "Architecture & Internals"
-description: "How ddg-search works inside: the two-layer API/Engine design, the token→search→parse→prioritize→dedupe→cap flow, the DdgSearchOptions encoding, the data models, and the DuckDuckGo protocol quirks."
+description: "How ddg-search works inside: the DuckDuckGoApi client plus the ImageSearchParser, the token→search→parse flow, the DdgSearchOptions encoding, the data models, and the DuckDuckGo protocol quirks."
 category: "architecture"
 tags: ["architecture", "design", "ddg", "search-strategy", "data-flow", "internals"]
-last_updated: "2026-06-20T00:04:08Z"
+last_updated: "2026-06-20T09:17:12Z"
 related_docs: ["overview.md", "code-style.md", "testing.md"]
 ---
 
 # Architecture & Internals
 
 ## Table of Contents
-1. [Two Layers](#two-layers)
+1. [Client and Parser](#client-and-parser)
 2. [End-to-End Flow](#end-to-end-flow)
-3. [The API Layer: DuckDuckGoApi](#the-api-layer-duckduckgoapi)
+3. [The Client: DuckDuckGoApi](#the-client-duckduckgoapi)
    - [Token Generation](#token-generation)
    - [Image Search and Option Encoding](#image-search-and-option-encoding)
-4. [The Engine Layer: Prioritized Search](#the-engine-layer-prioritized-search)
+4. [The Parser: ImageSearchParser](#the-parser-imagesearchparser)
 5. [Data Models](#data-models)
 6. [DuckDuckGo Protocol Quirks](#duckduckgo-protocol-quirks)
 7. [Error Handling](#error-handling)
 
 ---
 
-## Two Layers
+## Client and Parser
 
-The library is two cooperating classes with a clear seam:
+The library is one public client class plus a small parser it delegates to:
 
-| Layer | Class | Responsibility | Returns |
-|-------|-------|----------------|---------|
-| API (low-level) | `DuckDuckGoApi` | Talk to DDG: get a token, GET `i.js`, encode options | **raw JSON string** |
-| Engine (high-level) | `DuckDuckGoImageSearch` | Run a multi-query strategy, parse, prioritize, dedupe, cap | `ImageSearchResult[]` |
+| Class | Responsibility | Returns |
+|-------|----------------|---------|
+| `DuckDuckGoApi` | Talk to DDG: get a token, GET `i.js`, encode options, hand the body to the parser | `ImageSearchResult[]` |
+| `ImageSearchParser` | Turn one DDG JSON response body into result objects | `ImageSearchResult[]` |
 
-The engine **owns an instance of the API** (`private readonly _api = new
-DuckDuckGoApi()`) and is the only caller of it in this package. `DuckDuckGoApi`
-knows nothing about prioritization; `DuckDuckGoImageSearch` knows nothing
-about URLs or headers. This split is the core design decision: the brittle,
-DDG-specific transport is isolated in one class so the strategy layer stays
-pure data manipulation.
+`DuckDuckGoApi` **owns an instance of the parser** (`private readonly _parser =
+new ImageSearchParser()`) and is its only caller in this package. The parser
+knows nothing about HTTP, URLs, headers, or tokens; the client knows nothing
+about the JSON shape beyond delegating to the parser. This keeps the brittle,
+DDG-specific transport and the response-shape knowledge each in one place, and
+lets the parser be unit-tested offline with a fixture string
+([testing.md](testing.md#test-layout)).
+
+> **Note — removed prioritized engine.** Earlier versions had a higher-level
+> `DuckDuckGoImageSearch` engine that ran the same query four times with
+> progressively looser filters, then ranked, deduped, and capped the merged
+> results at 100. That multi-query strategy and its automatic token+search
+> orchestration were **removed**; the parser is all that remains of that file.
+> A caller now generates a token once and calls `imageSearch` directly. If the
+> prioritized strategy is wanted again it is a rebuild, not a re-wire.
 
 ## End-to-End Flow
 
-`engine.search(query)` performs:
+A search is now two explicit steps the caller drives:
 
 ```
-generateToken(query)                     1 HTTP GET → vqd token
-  └─ for each of 4 prioritized option sets (sequentially):
-       imageSearch(query, token, options)   1 HTTP GET → raw JSON
-       parseResponse(json)                  → ImageSearchResult[]
-       tag each result with priority = optionBasePriority + index
-  merge all tagged results
-  sort ascending by priority
-  walk sorted list, dedupe by imageUrl, stop at 100
-  → ImageSearchResult[]
+generateToken(query)                 1 HTTP GET → vqd token
+imageSearch(query, token, options?)  1 HTTP GET → raw JSON body
+  └─ _parser.parse(body)             → ImageSearchResult[]
 ```
 
-So a single `search()` makes **1 + 4 = 5 sequential HTTP requests** against
-live DuckDuckGo. They run in order, not in parallel; a failure in any one
-rejects the whole call (see [Error Handling](#error-handling)).
+So one `imageSearch` is a **single** HTTP request against live DuckDuckGo, and
+its result is already parsed. There is no longer any internal multi-request fan-out,
+dedupe, or cap — a caller that wants those composes them on top.
 
-## The API Layer: DuckDuckGoApi
+## The Client: DuckDuckGoApi
 
-`src/DuckDuckGoApi.ts`. A thin, stateless client. All its
-fields are `private readonly` constants (headers, the option-name order, the
-token regex). It exposes two public methods and keeps URL construction private.
+`src/DuckDuckGoApi.ts`. A thin, near-stateless client. Its configuration fields
+are `private readonly` constants (headers, the option-name order, the token
+regex); the one non-constant field is `private readonly _parser`. It exposes two
+public methods (`generateToken`, `imageSearch`) and keeps URL construction
+private.
 
 ### Token Generation
 
@@ -83,9 +88,10 @@ The token is a string of digits and dashes (the live test asserts
 
 `imageSearch(query, token, options?)` GETs
 `https://duckduckgo.com/i.js?...` with the richer `SEARCH_HEADERS` (a browser
-`user-agent`, `x-requested-with: XMLHttpRequest`, `referer`, etc.) and returns
-the response body verbatim as a string — it does **not** parse JSON. Parsing is
-the engine's job.
+`user-agent`, `x-requested-with: XMLHttpRequest`, `referer`, etc.), reads the
+response body with `HttpResponseReader`, and returns
+`this._parser.parse(responseText)` — an `ImageSearchResult[]`. The JSON parsing
+itself lives in the parser, not here.
 
 The query parameters built in `createSearchUrl`:
 
@@ -125,49 +131,22 @@ The option value types (all string unions, exported for callers):
 | `DdgLayout` | `Square` `Tall` `Wide` |
 | `DdgLicense` | `Any` `Public` |
 
-## The Engine Layer: Prioritized Search
+## The Parser: ImageSearchParser
 
-`src/image/DuckDuckGoImageSearch.ts`. The engine runs the
-same query four times with progressively looser filters and ranks results by
-how well they matched the preferred (tight) filter.
-
-The strategy table:
+`src/image/ImageSearchParser.ts`. A single-purpose, dependency-free class
+(it imports only `ImageSearchResult`). Its one public method:
 
 ```ts
-private readonly SEARCH_OPTIONS: PrioritizedSearchOption[] = [
-  { options: { size: 'Large', layout: 'Square' }, priority: 0 },
-  { options: { layout: 'Square' },                priority: 5 },
-  { options: { size: 'Large' },                   priority: 10 },
-  { options: {},                                  priority: 20 }
-];
+public parse(responseText: string): ImageSearchResult[]
 ```
 
-Lower `priority` is better. For each option set, every returned result is
-tagged with `priority = base + indexInThatResponse`, so the first result of the
-tightest search (base 0) ranks above the second (1), and the entire
-`Large+Square` batch (0–4, since priorities are spaced 5 apart) ranks above the
-`Square-only` batch (5+), and so on. The spacing of 5/10/20 leaves room for
-the per-result index without batches overtaking each other at the boundaries.
-
-After collecting all tagged results, the engine:
-
-1. **Sorts** ascending by priority (`a.priority - b.priority`).
-2. **Dedupes** by `imageUrl` using a `Map<string, ImageSearchResult>` — first
-   (best-priority) occurrence wins, later duplicates are skipped.
-3. **Caps** at 100: the dedupe loop breaks once the map reaches 100 entries.
-
-The result is the map's values: up to 100 unique images, best matches first.
-
-> **Note — domain bias.** The `Large/Square` preference is a carry-over from the
-> library's origin as album-artwork search. It is a sensible default but is
-> hard-coded; a more general image library might expose the strategy to the
-> caller. (Recorded in `.claude/tasks/standalone-ddg-package.md`.)
-
-`parseResponse` casts the parsed JSON to `{ results: { image, thumbnail }[] }`
-and maps each entry to `new ImageSearchResult(thumbnail, image)`. The internal
-shapes `PrioritizedSearchOption`, `PrioritizedResult`, `DdgResponse`, and
-`DdgResult` are `interface`s, not classes — partly because the project enforces
-`max-classes-per-file: 1` (see [code-style.md](code-style.md#one-class-per-file)).
+It `JSON.parse`s the body, casts it to the internal `DdgResponse` shape, and maps
+each `DdgResult` to `new ImageSearchResult(result.thumbnail, result.image)`. The
+`DdgResponse` and `DdgResult` shapes are `interface`s in the same file — partly
+because the project enforces `max-classes-per-file: 1` (see
+[code-style.md](code-style.md#one-class-per-file)). Because it touches no network,
+it is the one search-path piece covered by an **offline** unit test
+([testing.md](testing.md#live-integration-tests)).
 
 ## Data Models
 
@@ -185,16 +164,14 @@ class ImageSearchResult {
 
 `ImageSearchResult` is immutable (both fields `readonly`, set via constructor
 parameter properties). Note the **constructor argument order is
-`thumbnailUrl, imageUrl`** but the engine maps from DDG's `{ image, thumbnail }`
+`thumbnailUrl, imageUrl`** but the parser maps from DDG's `{ image, thumbnail }`
 — `new ImageSearchResult(result.thumbnail, result.image)`. Keep that mapping
 straight when touching either side.
 
-**The high-level engine is not part of the public surface.** `src/index.ts`
-re-exports only `DuckDuckGoApi`, `ImageSearchResult`, and the `Ddg*` types —
-`DuckDuckGoImageSearch` lives in the source tree but is not exported from the
-barrel (see [overview.md](overview.md#public-api)). The earlier
-`IImageSearchEngine` interface that the engine implemented has been removed;
-there is no engine interface anymore.
+`src/index.ts` re-exports `DuckDuckGoApi`, `ImageSearchResult`, and the `Ddg*`
+types — `ImageSearchParser` lives in the source tree but is not exported from the
+barrel (see [overview.md](overview.md#public-api)), since callers receive parsed
+results from `imageSearch` and never need the parser directly.
 
 ## DuckDuckGo Protocol Quirks
 
@@ -209,6 +186,10 @@ These are the reasons the library is brittle and why the tests hit the live API
 - **Header sensitivity.** The image endpoint expects browser-like headers
   (`user-agent`, `x-requested-with`, `referer`, `accept`). Stripping them can
   change or block the response.
+- **Response shape.** The parser assumes `{ results: [{ image, thumbnail }] }`.
+  If DDG renames or restructures those fields, `parse` produces wrong or empty
+  results — the offline parser test pins the expected mapping, the live test
+  catches shape drift.
 - **Transport.** Responses are gzip/deflate/br-compressed and chunked. The
   `HttpResponseReader` from `node-http-toolkit` handles buffering and
   decompression; the request goes through `AsyncResolvingHttpRequest`, which
@@ -221,9 +202,9 @@ The package **fails fast** and throws rather than logging or swallowing:
 - `generateToken` throws `Error('Unable to read token from DuckDuckGo
   response.')` when the regex finds no `vqd`.
 - HTTP-level failures (status ≥ 400, network errors, timeouts) reject from the
-  underlying `node-http-toolkit` request and propagate.
-- In the engine, the four sub-searches run sequentially with no try/catch, so a
-  failure in any one **aborts the whole `search()`** — partial results are not
-  returned. This is a deliberate behavior choice (the engine previously
-  swallowed per-option failures via a logger; that was removed). If you need
-  resilience to one bad sub-query, that has to be added explicitly.
+  underlying `node-http-toolkit` request and propagate out of `generateToken` or
+  `imageSearch`.
+- `ImageSearchParser.parse` does not guard its input: a non-JSON body throws from
+  `JSON.parse`, and a response missing `results` throws when it is iterated. Both
+  propagate to the `imageSearch` caller. This is deliberate — a malformed
+  response is a real failure, not something to paper over.

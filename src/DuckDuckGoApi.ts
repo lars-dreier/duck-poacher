@@ -1,5 +1,7 @@
 import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
+import ImageSearchParser from './image/ImageSearchParser.ts';
+import type ImageSearchResult from './image/ImageSearchResult.ts';
 
 export type DdgTime = 'Day' | 'Week' | 'Month';
 export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
@@ -40,6 +42,8 @@ export default class DuckDuckGoApi {
 
 	private readonly TOKEN_REGEX = /vqd=(?<vqd>[\d-]+)/;
 
+	private readonly _parser = new ImageSearchParser();
+
 	public async generateToken(query: string): Promise<string> {
 		const params = new URLSearchParams();
 		params.append('q', query);
@@ -67,15 +71,16 @@ export default class DuckDuckGoApi {
 		query: string,
 		token: string,
 		options?: DdgSearchOptions,
-	): Promise<string> {
+	): Promise<ImageSearchResult[]> {
 		const searchOptions: DdgSearchOptions = options ?? {};
 		const url: string = this.createSearchUrl(query, token, searchOptions);
 
 		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, this.SEARCH_HEADERS);
 		const response: http.IncomingMessage = await request.resolve();
 		const reader = new HttpResponseReader();
+		const responseText: string = await reader.readData(response);
 
-		return reader.readData(response);
+		return this._parser.parse(responseText);
 	}
 
 	private createSearchUrl(query: string, token: string, options: DdgSearchOptions): string {

@@ -3,7 +3,7 @@ title: "Project Overview"
 description: "What ddg-search is, its technology stack, how to install it, the public API surface, a runnable usage example, and the project layout."
 category: "overview"
 tags: ["overview", "getting-started", "public-api", "usage", "stack"]
-last_updated: "2026-06-20T00:04:08Z"
+last_updated: "2026-06-20T09:17:12Z"
 related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md"]
 ---
 
@@ -26,18 +26,19 @@ related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md
 undocumented image-search endpoints** and returns image + thumbnail URLs. It has
 no UI, no CLI, and no server — it is a library consumed by other code.
 
-The public entry point is **`DuckDuckGoApi`**, the low-level client:
-`generateToken(query)` then `imageSearch(query, token, options?)` returns the
-**raw JSON string** from DuckDuckGo, giving you direct control over options and
-parsing. `ImageSearchResult` is the value object you wrap individual results in.
+The public entry point is **`DuckDuckGoApi`**, the client:
+`generateToken(query)` then `imageSearch(query, token, options?)` returns
+**parsed `ImageSearchResult[]`** — the client GETs DuckDuckGo's `i.js` endpoint
+and hands the JSON body to an internal `ImageSearchParser`, so you get result
+objects, not a raw string. `ImageSearchResult` is the value object each result
+comes back as (`{ thumbnailUrl, imageUrl }`).
 
-A higher-level **`DuckDuckGoImageSearch`** engine also lives in the source tree
-(`src/image/`). It runs a deduped, prioritized, capped multi-query strategy and
-returns `ImageSearchResult[]` — but it is **not currently re-exported from the
-package barrel**, so it is internal. See
-[architecture.md](architecture.md#the-engine-layer-prioritized-search) for how
-it works and [its data-models note](architecture.md#data-models) on the export
-boundary.
+The library does **not** orchestrate token generation for you: a caller
+generates a token once and passes it to each `imageSearch` call. There is also no
+built-in prioritized multi-query, dedupe, or cap — `imageSearch` is a single
+request that returns DDG's results for one option set. (An earlier
+`DuckDuckGoImageSearch` engine that did all of that was removed; see
+[architecture.md](architecture.md#client-and-parser).)
 
 Because it scrapes endpoints DuckDuckGo does not document or guarantee, the
 library is inherently brittle: DDG can change the token format, the response
@@ -80,23 +81,22 @@ public.
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGoApi` | class | Low-level token + raw-JSON image search |
+| `DuckDuckGoApi` | class | Token generation + parsed image search |
 | `ImageSearchResult` | class | Value object: `{ thumbnailUrl, imageUrl }` |
 | `DdgSearchOptions` | type | Filter options for `DuckDuckGoApi.imageSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
 `DuckDuckGoApi` and `ImageSearchResult` are runtime values; the rest are
-type-only exports (`export type`). The `DuckDuckGoImageSearch` engine is **not**
-in the barrel — it exists in `src/image/` but is not part of the published
-surface.
+type-only exports (`export type`). The `ImageSearchParser` is **not** in the
+barrel — it exists in `src/image/` as an internal detail `DuckDuckGoApi`
+delegates to, and callers receive its output directly from `imageSearch`.
 
 ## Usage
 
-Drive the API directly — generate a token, then search and parse the raw
-response:
+Generate a token once, then search — the result is already parsed:
 
 ```ts
-import { DuckDuckGoApi, ImageSearchResult, type DdgSearchOptions } from 'ddg-search';
+import { DuckDuckGoApi, type DdgSearchOptions, type ImageSearchResult } from 'ddg-search';
 
 const api = new DuckDuckGoApi();
 const token = await api.generateToken('mountain landscape');
@@ -106,50 +106,41 @@ const options: DdgSearchOptions = {
   layout: 'Square',
   safeSearch: true
 };
-const rawJson = await api.imageSearch('mountain landscape', token, options);
+const results: ImageSearchResult[] = await api.imageSearch('mountain landscape', token, options);
 
-// raw DDG shape: { results: [{ image, thumbnail }] }
-const { results } = JSON.parse(rawJson) as { results: { image: string; thumbnail: string }[] };
-
-for (const { image, thumbnail } of results) {
-  const result = new ImageSearchResult(thumbnail, image);
+for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
 }
 ```
 
 `generateToken` throws `Error('Unable to read token from DuckDuckGo response.')`
 if the `vqd` token cannot be parsed. Network or HTTP failures reject from the
-underlying request.
-
-For the deduped/prioritized/capped behavior, the internal
-`DuckDuckGoImageSearch` engine (`src/image/DuckDuckGoImageSearch.ts`) runs
-several requests sequentially and **fails fast** — a single failed sub-search
-propagates out of `search()`. See
-[architecture.md](architecture.md#the-engine-layer-prioritized-search).
+underlying request, and a malformed response body throws out of the parser. See
+[architecture.md](architecture.md#error-handling).
 
 ## Project Structure
 
 ```
 src/
   index.ts                          public barrel (re-exports only)
-  DuckDuckGoApi.ts                  low-level client + Ddg* option types
+  DuckDuckGoApi.ts                  the client + Ddg* option types
   image/
-    DuckDuckGoImageSearch.ts        high-level prioritized search (internal)
+    ImageSearchParser.ts            parses one DDG JSON body (internal)
     ImageSearchResult.ts            { thumbnailUrl, imageUrl } value object
 test/                               mirrors src/ (see testing.md)
 dist/                               generated by tsdown (gitignored, published)
 ```
 
 The directory layout maps onto the architecture: `DuckDuckGoApi.ts` is the thin
-DDG client at the root, and `image/` holds the strategy layer plus the result
-value object. See [architecture.md](architecture.md) for how they fit together.
+DDG client at the root, and `image/` holds the parser plus the result value
+object. See [architecture.md](architecture.md) for how they fit together.
 
 ## Commands at a Glance
 
 | Command | Does |
 |---------|------|
 | `npm run build` | tsdown → dual ESM/CJS in `dist/` |
-| `npm test` | run all `test/**/*.test.ts` (hits the live DDG API) |
+| `npm test` | run all `test/**/*.test.ts` (the API specs hit the live DDG API) |
 | `npm run typecheck` | `tsc --noEmit` over `src/` |
 | `npm run lint` / `lint:fix` | ESLint |
 | `npm run format` / `format:check` | dprint |

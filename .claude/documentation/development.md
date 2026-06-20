@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-20T00:04:08Z"
+last_updated: "2026-06-20T09:17:12Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -98,10 +98,9 @@ succeeds, and the export map validates. The package is ESM-first
   (or the const-object pattern when you need a runtime value)
   ([code-style.md](code-style.md#closed-string-sets-no-ts-enum)).
 - **Adding a second class to a file.** `max-classes-per-file` is an error; the
-  engine's internal `PrioritizedSearchOption` / `PrioritizedResult` / `DdgResponse`
-  / `DdgResult` shapes are `interface`s for exactly this reason. Create a new
-  PascalCase file (and export it from the barrel if it is public) when you need
-  another class.
+  parser's internal `DdgResponse` / `DdgResult` shapes are `interface`s for
+  exactly this reason. Create a new PascalCase file (and export it from the barrel
+  if it is public) when you need another class.
 - **Floating promises in `src/`.** `no-floating-promises` is an error in source.
   No current `src/` code fires-and-forgets; if you ever need to, `void` the call
   deliberately. The rule is off only for `test/` (where `node:test`'s
@@ -115,6 +114,6 @@ succeeds, and the export map validates. The package is ESM-first
 - **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
   The barrel exports only the public surface: `DuckDuckGoApi`, `ImageSearchResult`,
   and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`, `DdgSearchOptions`,
-  `DdgSize`, `DdgTime`, `DdgType`). The engine `DuckDuckGoImageSearch` and its
-  internal interfaces (`PrioritizedSearchOption`, `PrioritizedResult`,
-  `DdgResponse`, `DdgResult`) stay unexported.
+  `DdgSize`, `DdgTime`, `DdgType`). The `ImageSearchParser` and its internal
+  interfaces (`DdgResponse`, `DdgResult`) stay unexported — callers get parsed
+  results back from `imageSearch`.
