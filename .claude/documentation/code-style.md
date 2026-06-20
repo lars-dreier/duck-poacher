@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-20T09:17:12Z"
+last_updated: "2026-06-20T09:58:00Z"
 related_docs: ["development.md", "architecture.md", "overview.md"]
 ---
 
@@ -35,15 +35,15 @@ never fight. When you change code, run both (`npm run format` then `npm run lint
 | Element | Convention | Example |
 |---------|-----------|---------|
 | Folders | lowercase, hyphenated for multiword | `src/`, `image/` |
-| Class files | PascalCase, match the class | `DuckDuckGoApi.ts`, `ImageSearchResult.ts` |
-| Classes | PascalCase | `DuckDuckGoApi`, `ImageSearchParser`, `ImageSearchResult` |
+| Class files | PascalCase, match the class | `DdgClient.ts`, `ImageSearchClient.ts`, `ImageSearchResult.ts` |
+| Classes | PascalCase | `DdgClient`, `ImageSearchClient`, `ImageSearchParser`, `ImageSearchResult` |
 | Methods / locals | camelCase | `generateToken`, `imageSearch`, `createSearchUrl` |
-| Private fields | `_camelCase` | `_parser` |
+| Private fields | `_camelCase` | `_parser`, `_imageSearch` |
 | Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX` |
 
 **Acronyms are treated as ordinary words in identifiers — never all-caps.**
 Capitalize only the first letter and lowercase the rest: `Api` not `API`, `Ddg`
-not `DDG`, `Url` not `URL`, `Json` not `JSON`. So the class is `DuckDuckGoApi`,
+not `DDG`, `Url` not `URL`, `Json` not `JSON`. So the client class is `DdgClient`,
 the option types are `DdgSearchOptions` / `DdgSize`, and a helper is
 `assertHttpUrl`.
 
@@ -70,7 +70,9 @@ filename matches that class. Enforced by ESLint:
 rule. The public barrel `src/index.ts` is the one file with many exports — it
 only re-exports, it defines nothing. The parser's internal `DdgResponse` /
 `DdgResult` shapes co-exist with `ImageSearchParser` in one file because they are
-`interface`s, not classes, so the rule does not count them.
+`interface`s, not classes, so the rule does not count them. The `Ddg*` option
+types live alongside `ImageSearchClient` for the same reason — they are `type`
+aliases, not classes.
 
 ## Closed String Sets (no TS `enum`)
 
@@ -119,7 +121,9 @@ including the constructor. Enforced:
 '@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'explicit' }]
 ```
 
-In `DuckDuckGoApi`, configuration constants are `private readonly`
+In `DdgClient`, the owned implementation client is a `private readonly` field
+(`_imageSearch`) and the single entry point is `public` (`imageSearch`).
+In `ImageSearchClient`, configuration constants are `private readonly`
 (`OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`), the two entry points are
 `public` (`generateToken`, `imageSearch`), and URL-building helpers are
 `private` (`createSearchUrl`, `createImageSearchOptionsHeader`). `protected` is
@@ -127,10 +131,14 @@ available for subclass seams but is not currently used anywhere in `src/`.
 
 ## Private Fields and Constructor Properties
 
-State is held in `private` `_`-prefixed fields. The client's owned parser is the
-example:
+State is held in `private` `_`-prefixed fields. The facade's owned implementation
+client and the implementation's owned parser are the examples:
 
 ```ts
+// DdgClient owns the implementation client
+private readonly _imageSearch = new ImageSearchClient();
+
+// ImageSearchClient owns the parser
 private readonly _parser = new ImageSearchParser();
 ```
 
@@ -153,25 +161,26 @@ declaration with explicit types where inference would be unclear.
 Relative imports include the **`.ts`** extension:
 
 ```ts
-import ImageSearchParser from './image/ImageSearchParser.ts';
+import ImageSearchClient from './image/ImageSearchClient.ts';
 import type ImageSearchResult from './image/ImageSearchResult.ts';
 ```
 
-(and from a subdirectory, e.g. inside the parser: `import ImageSearchResult from
-'./ImageSearchResult.ts';`). This works because `tsconfig.json` sets
-`allowImportingTsExtensions` + `rewriteRelativeImportExtensions` — the compiler
-rewrites `.ts` to `.js` on emit, so no post-processor is needed and `tsc -w`
-works. Other conventions:
+(and from within the `image/` subdirectory, e.g. inside the parser: `import
+ImageSearchResult from './ImageSearchResult.ts';`). This works because
+`tsconfig.json` sets `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`
+— the compiler rewrites `.ts` to `.js` on emit, so no post-processor is needed and
+`tsc -w` works. Other conventions:
 
 - `verbatimModuleSyntax` is on, so use `import type` / `export type` (or inline
-  `{ type X }`) for type-only imports — e.g. the `import type ImageSearchResult`
-  above (the client uses the class only as a return type), and `src/index.ts`
+  `{ type X }`) for type-only imports — e.g. `import type ImageSearchResult`
+  when a class is used only as a return type, and `src/index.ts`
   re-exporting the `Ddg*` types with `export type`.
 - Node built-ins are imported as namespaces in `src/`: `import * as http from
   'http'`. Test files use the `node:` prefix, e.g. `node:test`,
   `node:assert/strict`.
 - Default export per file for classes; the barrel `src/index.ts` re-exports them
-  under their names and re-exports the `Ddg*` types with `export type`.
+  under their names (`export { default as DdgClient }`) and re-exports the `Ddg*`
+  types with `export type`.
 
 ## Formatting Rules
 
@@ -194,7 +203,7 @@ The "next line" control flow produces the project's distinctive `}` then
 
 The `src/` classes are **not** JSDoc-documented — the code carries no `/** ... */`
 class summaries. Comments are sparse and reserved for non-obvious decisions: see
-`// Order is important` above `OPTION_NAMES` in `DuckDuckGoApi` (the only inline
+`// Order is important` above `OPTION_NAMES` in `ImageSearchClient` (the only inline
 comment in the source), which warns that the option order is load-bearing for the
 `f`-parameter encoding ([architecture.md](architecture.md#image-search-and-option-encoding)).
 

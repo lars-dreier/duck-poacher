@@ -3,7 +3,7 @@ title: "Project Overview"
 description: "What ddg-search is, its technology stack, how to install it, the public API surface, a runnable usage example, and the project layout."
 category: "overview"
 tags: ["overview", "getting-started", "public-api", "usage", "stack"]
-last_updated: "2026-06-20T09:17:12Z"
+last_updated: "2026-06-20T09:58:00Z"
 related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md"]
 ---
 
@@ -26,19 +26,16 @@ related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md
 undocumented image-search endpoints** and returns image + thumbnail URLs. It has
 no UI, no CLI, and no server — it is a library consumed by other code.
 
-The public entry point is **`DuckDuckGoApi`**, the client:
-`generateToken(query)` then `imageSearch(query, token, options?)` returns
-**parsed `ImageSearchResult[]`** — the client GETs DuckDuckGo's `i.js` endpoint
-and hands the JSON body to an internal `ImageSearchParser`, so you get result
-objects, not a raw string. `ImageSearchResult` is the value object each result
-comes back as (`{ thumbnailUrl, imageUrl }`).
+The public entry point is **`DdgClient`**, the client. Call `imageSearch(query, options?)`
+and it returns **parsed `ImageSearchResult[]`** — the client internally generates a
+per-session `vqd` token, GETs DuckDuckGo's `i.js` endpoint, and hands the JSON body
+to an internal `ImageSearchParser`, so you get result objects, not a raw string.
+`ImageSearchResult` is the value object each result comes back as (`{ thumbnailUrl, imageUrl }`).
 
-The library does **not** orchestrate token generation for you: a caller
-generates a token once and passes it to each `imageSearch` call. There is also no
-built-in prioritized multi-query, dedupe, or cap — `imageSearch` is a single
-request that returns DDG's results for one option set. (An earlier
-`DuckDuckGoImageSearch` engine that did all of that was removed; see
-[architecture.md](architecture.md#client-and-parser).)
+The library orchestrates token generation for you: a single `imageSearch` call
+generates the token and runs the search without any caller involvement. There is no
+built-in multi-query, dedupe, or cap — each call to `imageSearch` makes two live HTTP
+requests (mint the token, then search) and returns DDG's results for one option set.
 
 Because it scrapes endpoints DuckDuckGo does not document or guarantee, the
 library is inherently brittle: DDG can change the token format, the response
@@ -81,39 +78,41 @@ public.
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGoApi` | class | Token generation + parsed image search |
+| `DdgClient` | class | The client: `imageSearch(query, options?)`, token managed internally |
 | `ImageSearchResult` | class | Value object: `{ thumbnailUrl, imageUrl }` |
-| `DdgSearchOptions` | type | Filter options for `DuckDuckGoApi.imageSearch` |
+| `DdgSearchOptions` | type | Filter options for `DdgClient.imageSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
-`DuckDuckGoApi` and `ImageSearchResult` are runtime values; the rest are
-type-only exports (`export type`). The `ImageSearchParser` is **not** in the
-barrel — it exists in `src/image/` as an internal detail `DuckDuckGoApi`
-delegates to, and callers receive its output directly from `imageSearch`.
+`DdgClient` and `ImageSearchResult` are runtime values; the rest are
+type-only exports (`export type`). The `ImageSearchClient` and `ImageSearchParser` are
+**not** in the barrel — they exist in `src/image/` as internal details that
+`DdgClient` delegates to. Callers receive the output of the parser directly
+from `imageSearch`.
 
 ## Usage
 
-Generate a token once, then search — the result is already parsed:
+Construct a `DdgClient` and call `imageSearch` — token generation is handled
+internally, and the result is already parsed:
 
 ```ts
-import { DuckDuckGoApi, type DdgSearchOptions, type ImageSearchResult } from 'ddg-search';
+import { DdgClient, type DdgSearchOptions, type ImageSearchResult } from 'ddg-search';
 
-const api = new DuckDuckGoApi();
-const token = await api.generateToken('mountain landscape');
+const ddg = new DdgClient();
 
 const options: DdgSearchOptions = {
   size: 'Large',
   layout: 'Square',
   safeSearch: true
 };
-const results: ImageSearchResult[] = await api.imageSearch('mountain landscape', token, options);
+const results: ImageSearchResult[] = await ddg.imageSearch('mountain landscape', options);
 
 for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
 }
 ```
 
-`generateToken` throws `Error('Unable to read token from DuckDuckGo response.')`
+Each call makes two live HTTP requests (mint the token, then search). The
+`imageSearch` method throws `Error('Unable to read token from DuckDuckGo response.')`
 if the `vqd` token cannot be parsed. Network or HTTP failures reject from the
 underlying request, and a malformed response body throws out of the parser. See
 [architecture.md](architecture.md#error-handling).
@@ -123,24 +122,27 @@ underlying request, and a malformed response body throws out of the parser. See
 ```
 src/
   index.ts                          public barrel (re-exports only)
-  DuckDuckGoApi.ts                  the client + Ddg* option types
+  DdgClient.ts                      the client wrapper
   image/
+    ImageSearchClient.ts            HTTP layer + token generation + Ddg* option types
     ImageSearchParser.ts            parses one DDG JSON body (internal)
     ImageSearchResult.ts            { thumbnailUrl, imageUrl } value object
 test/                               mirrors src/ (see testing.md)
 dist/                               generated by tsdown (gitignored, published)
 ```
 
-The directory layout maps onto the architecture: `DuckDuckGoApi.ts` is the thin
-DDG client at the root, and `image/` holds the parser plus the result value
-object. See [architecture.md](architecture.md) for how they fit together.
+The directory layout maps onto the architecture: `DdgClient.ts` is the thin
+public-facing wrapper at the root, which delegates to `ImageSearchClient` in the
+`image/` subfolder. `ImageSearchClient` handles HTTP and token generation, while
+`ImageSearchParser` parses the response. See [architecture.md](architecture.md) for
+how they fit together.
 
 ## Commands at a Glance
 
 | Command | Does |
 |---------|------|
 | `npm run build` | tsdown → dual ESM/CJS in `dist/` |
-| `npm test` | run all `test/**/*.test.ts` (the API specs hit the live DDG API) |
+| `npm test` | run all `test/**/*.test.ts` (hits the live DuckDuckGo API) |
 | `npm run typecheck` | `tsc --noEmit` over `src/` |
 | `npm run lint` / `lint:fix` | ESLint |
 | `npm run format` / `format:check` | dprint |

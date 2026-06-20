@@ -3,7 +3,7 @@ title: "Testing Guide"
 description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API, the offline parser/value-object specs, shared fixtures, and conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-06-20T09:17:12Z"
+last_updated: "2026-06-20T09:58:00Z"
 related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
 ---
 
@@ -47,16 +47,17 @@ This package is a thin scraper over DuckDuckGo's undocumented image endpoints, s
 the tests that matter **hit the real DDG API** rather than mocking it. There is no
 local HTTP server, no recorded fixture for the network layer, and no test double
 for it — those would only prove the code calls itself, not that it still works
-against a live, drifting target. The `DuckDuckGoApi` spec is the live-network
+against a live, drifting target. The `DdgClient` and `ImageSearchClient` specs are the live-network
 validation; the parser and value-object specs run offline.
 
 Consequences to keep in mind:
 
-- **Network is required for the API spec.** `DuckDuckGoApi.test.ts` fails without
+- **Network is required for the API specs.** `DdgClient.test.ts` and
+  `ImageSearchClient.test.ts` hit the live DuckDuckGo API and fail without
   connectivity. The two offline specs — `ImageSearchParser.test.ts` (parses a
   fixture JSON string) and `ImageSearchResult.test.ts` (a pure value object) —
   run without the network.
-- **DDG can break the live spec.** DDG changes its `vqd` token format, the `i.js`
+- **DDG can break the live specs.** DDG changes its `vqd` token format, the `i.js`
   response shape, headers it accepts, and its transport (responses are chunked
   and gzip/deflate/br-compressed). A failure here usually means DDG changed, not
   that the test is flaky — investigate the real response before "fixing" the test.
@@ -69,7 +70,7 @@ Consequences to keep in mind:
   `imageUrl` / `thumbnailUrl` is an absolute http(s) URL — never on specific
   images, which change constantly.
 - **Generous timeouts.** Each live `it` carries an explicit `NETWORK_TIMEOUT_MS`
-  timeout. The API specs that search first generate a token, so they make two
+  timeout (30,000 ms). The specs that search first generate a token, so they make two
   sequential requests within that budget. The offline specs need no timeout.
 
 ## Test Layout
@@ -79,11 +80,12 @@ folder:
 
 ```
 test/
-  TestHelper.ts                          shared fixtures (not a spec)
-  DuckDuckGoApi.test.ts                  live: token + parsed image search
+  TestHelper.ts                              shared fixtures (not a spec)
+  DdgClient.test.ts                          live: public facade → imageSearch
   image/
-    ImageSearchParser.test.ts            offline: JSON-string → result mapping
-    ImageSearchResult.test.ts            offline: value object
+    ImageSearchClient.test.ts                live: token generation + search
+    ImageSearchParser.test.ts                offline: JSON-string → result mapping
+    ImageSearchResult.test.ts                offline: value object
 ```
 
 Specs end in `.test.ts`; support files (shared fixtures) do not, so the glob skips
@@ -99,7 +101,7 @@ over hand-rolling values in each test:
 - `NETWORK_TIMEOUT_MS` — the per-request budget (`30_000` ms) passed as the `it`
   timeout option.
 - `assertHttpUrl(value, label)` — asserts a value is a non-empty absolute http(s)
-  URL, used to validate every returned image and thumbnail URL.
+  URL (regex: `/^https?:\/\//`), used to validate every returned image and thumbnail URL.
 
 These are plain fixtures and assertions, not resources — there is nothing to tear
 down, so no `afterEach` cleanup is needed and none of the specs register one. The
@@ -109,12 +111,14 @@ offline parser spec builds its own fixture inline (a `JSON.stringify`'d
 ## Conventions
 
 - **Structure:** `describe` per class with a nested `describe` per method, and an
-  `it` per behavior (e.g. `describe('DuckDuckGoApi')` → `describe('generateToken')`
-  → `it(...)`).
+  `it` per behavior (e.g. `describe('DdgClient')` → `describe('imageSearch')`
+  → `it(...)`; `describe('ImageSearchClient')` → `describe('generateToken')` → `it(...)`).
 - **Given/When/Then:** each `it` body carries `// Given`, `// When`, `// Then`
   comments narrating the scenario. Follow this — it is consistent across the suite.
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options
-  argument on any spec that makes a request; omit it on the offline specs.
+  argument on any spec that makes a request (`DdgClient.test.ts` and
+  `ImageSearchClient.test.ts`); omit it on the offline specs (`ImageSearchParser.test.ts`,
+  `ImageSearchResult.test.ts`).
 - **Shape assertions:** use `assert.match` for the token (`/^[\d-]+$/`),
   `assertHttpUrl` for returned URLs, and `assert.ok`/`assert.equal` for array
   shape and the parser's field mapping.
@@ -125,7 +129,7 @@ The build `tsconfig.json` has `rootDir: ./src` and must not see test files, so t
 test tree is type-checked through a separate **`tsconfig.test.json`** that extends
 it, sets `rootDir: .` / `noEmit: true`, and widens `include` to `src` + `test`.
 
-ESLint wires the test tree to that config and **disables
+ESLint wires the test tree to that config via `eslint.config.mjs` and **disables
 `@typescript-eslint/no-floating-promises` for `test/**`** — `node:test`'s
 `describe`/`it` return promises that must not be awaited at the call site, so the
 rule would be all false positives there. The rule stays **on** in `src/`, where an
