@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import ImageSearchResult from '../../../src/image-search/types/ImageSearchResult.ts';
+import ImageSearchResult from '../../src/image/ImageSearchResult.ts';
 
 describe('ImageSearchResult', () => {
 	describe('constructor', () => {

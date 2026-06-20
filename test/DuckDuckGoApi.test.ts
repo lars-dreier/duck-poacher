@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import DuckDuckGoApi from '../../../src/image-search/api/DuckDuckGoApi.ts';
-import { NETWORK_TIMEOUT_MS, TEST_QUERY } from '../../TestHelper.ts';
+import DuckDuckGoApi from '../src/DuckDuckGoApi.ts';
+import { NETWORK_TIMEOUT_MS, TEST_QUERY } from './TestHelper.ts';
 
 interface RawDdgResponse {
 	results: Array<{ image: string; thumbnail: string }>;

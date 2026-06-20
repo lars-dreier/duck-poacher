@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import DuckDuckGoImageSearch from '../../../src/image-search/search/DuckDuckGoImageSearch.ts';
-import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from '../../TestHelper.ts';
+import DuckDuckGoImageSearch from '../../src/image/DuckDuckGoImageSearch.ts';
+import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from '../TestHelper.ts';
 
 // The engine runs the prioritized query strategy (one token + several searches)
 // sequentially, so it needs a larger budget than a single request.

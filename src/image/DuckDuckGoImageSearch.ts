@@ -1,5 +1,5 @@
-import DuckDuckGoApi, { type DdgSearchOptions } from '../api/DuckDuckGoApi.ts';
-import ImageSearchResult from '../types/ImageSearchResult.ts';
+import DuckDuckGoApi, { type DdgSearchOptions } from '../DuckDuckGoApi.ts';
+import ImageSearchResult from './ImageSearchResult.ts';
 
 export default class DuckDuckGoImageSearch {
 	private readonly _api = new DuckDuckGoApi();
