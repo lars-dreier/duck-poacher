@@ -1,5 +1,5 @@
 {
-	"name": "ddg-search",
+	"name": "duck-poacher",
 	"version": "1.0.0",
 	"description": "DuckDuckGo image search scraper for Node.js.",
 	"type": "module",

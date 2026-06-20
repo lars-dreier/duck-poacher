@@ -1,7 +1,7 @@
 import ImageSearchClient, { type DdgSearchOptions } from './image/ImageSearchClient.ts';
 import type ImageSearchResult from './image/ImageSearchResult.ts';
 
-export default class DdgClient {
+export default class DuckDuckGo {
 	private readonly _imageSearch = new ImageSearchClient();
 
 	public async imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]> {

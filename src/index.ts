@@ -1,4 +1,4 @@
-export { default as DdgClient } from './DdgClient.ts';
+export { default as DuckDuckGo } from './DuckDuckGo.ts';
 export type {
 	DdgColor,
 	DdgLayout,
