@@ -13,15 +13,13 @@ Response formats can change on DuckDuckGo's side and break the library.
 npm install duck-poacher
 ```
 
-Requires Node.js 18 or newer. The package ships dual ESM/CJS, with both `import`
-and `require` entry points.
+Requires Node.js 18 or newer. The package ships dual ESM/CJS.
 
 ## Usage
 
 `DuckDuckGo` is the client. Construct one and call `imageSearch` — it returns a
-parsed `ImageSearchResult[]` (objects with `imageUrl` / `thumbnailUrl`, not a raw
-string) and manages the per-session `vqd` token for you, so there is no token to
-pass.
+parsed `ImageSearchResult[]` (objects with `imageUrl` and `thumbnailUrl`) and
+manages the per-session `vqd` token for you.
 
 ```ts
 import { DuckDuckGo, type DdgSearchOptions, type ImageSearchResult } from 'duck-poacher';
