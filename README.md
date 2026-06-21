@@ -13,8 +13,8 @@ Response formats can change on DuckDuckGo's side and break the library.
 npm install duck-poacher
 ```
 
-Requires Node.js 18 or newer. The package ships dual ESM/CJS and exposes both an
-`import` and a `require` entry through its `exports` map.
+Requires Node.js 18 or newer. The package ships dual ESM/CJS, with both `import`
+and `require` entry points.
 
 ## Usage
 
