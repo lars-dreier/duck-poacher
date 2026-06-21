@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-20T10:21:54Z"
+last_updated: "2026-06-21T10:00:32Z"
 related_docs: ["development.md", "architecture.md", "overview.md"]
 ---
 
@@ -34,12 +34,12 @@ never fight. When you change code, run both (`npm run format` then `npm run lint
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Folders | lowercase, hyphenated for multiword | `src/`, `image/` |
-| Class files | PascalCase, match the class | `DuckDuckGo.ts`, `ImageSearchClient.ts`, `ImageSearchResult.ts` |
-| Classes | PascalCase | `DuckDuckGo`, `ImageSearchClient`, `ImageSearchParser`, `ImageSearchResult` |
-| Methods / locals | camelCase | `generateToken`, `imageSearch`, `createSearchUrl` |
-| Private fields | `_camelCase` | `_parser`, `_imageSearch` |
-| Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX` |
+| Folders | lowercase, hyphenated for multiword | `src/`, `image/`, `web/` |
+| Class files | PascalCase, match the class | `DuckDuckGo.ts`, `ImageSearchClient.ts`, `WebSearchClient.ts` |
+| Classes | PascalCase | `DuckDuckGo`, `ImageSearchClient`, `WebSearchParser`, `WebSearchResult` |
+| Methods / locals | camelCase | `generateToken`, `imageSearch`, `webSearch`, `createSearchUrl` |
+| Private fields | `_camelCase` | `_parser`, `_imageSearch`, `_webSearch` |
+| Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`, `SEARCH_URL_REGEX` |
 
 **Acronyms are treated as ordinary words in identifiers — never all-caps.**
 Capitalize only the first letter and lowercase the rest: `Api` not `API`, `Ddg`
@@ -70,11 +70,11 @@ filename matches that class. Enforced by ESLint:
 
 `ignoreExpressions` allows small inline/anonymous classes without tripping the
 rule. The public barrel `src/index.ts` is the one file with many exports — it
-only re-exports, it defines nothing. The parser's internal `DdgResponse` /
-`DdgResult` shapes co-exist with `ImageSearchParser` in one file because they are
-`interface`s, not classes, so the rule does not count them. The `Ddg*` option
-types live alongside `ImageSearchClient` for the same reason — they are `type`
-aliases, not classes.
+only re-exports, it defines nothing. The parsers' internal shapes — `DdgResponse` /
+`DdgResult` in `ImageSearchParser`, `DdgWebResult` in `WebSearchParser` — co-exist
+with their parser in one file because they are `interface`s, not classes, so the
+rule does not count them. The `Ddg*` option types live alongside `ImageSearchClient`
+for the same reason — they are `type` aliases, not classes.
 
 ## Closed String Sets (no TS `enum`)
 
@@ -123,13 +123,14 @@ including the constructor. Enforced:
 '@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'explicit' }]
 ```
 
-In `DuckDuckGo`, the owned implementation client is a `private readonly` field
-(`_imageSearch`) and the single entry point is `public` (`imageSearch`).
-In `ImageSearchClient`, configuration constants are `private readonly`
-(`OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`), the two entry points are
-`public` (`generateToken`, `imageSearch`), and URL-building helpers are
-`private` (`createSearchUrl`, `createImageSearchOptionsHeader`). `protected` is
-available for subclass seams but is not currently used anywhere in `src/`.
+In `DuckDuckGo`, the owned implementation clients are `private readonly` fields
+(`_imageSearch`, `_webSearch`) and the entry points are `public` (`imageSearch`,
+`webSearch`). In `ImageSearchClient` / `WebSearchClient`, configuration constants
+are `private readonly` (`OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`,
+`SEARCH_URL_REGEX`), the entry points are `public` (`generateToken`, `imageSearch`,
+`webSearch`), and URL-building helpers are `private` (`createSearchUrl`,
+`createImageSearchOptionsHeader`). `protected` is available for subclass seams but
+is not currently used anywhere in `src/`.
 
 ## Private Fields and Constructor Properties
 
@@ -137,20 +138,23 @@ State is held in `private` `_`-prefixed fields. The facade's owned implementatio
 client and the implementation's owned parser are the examples:
 
 ```ts
-// DuckDuckGo owns the implementation client
+// DuckDuckGo owns the implementation clients
 private readonly _imageSearch = new ImageSearchClient();
+private readonly _webSearch = new WebSearchClient();
 
-// ImageSearchClient owns the parser
-private readonly _parser = new ImageSearchParser();
+// each client owns its parser
+private readonly _parser = new WebSearchParser();
 ```
 
 Immutable public data uses **constructor parameter properties** rather than a
-field plus a getter — `ImageSearchResult` is the canonical case:
+field plus a getter — `ImageSearchResult` and `WebSearchResult` are the canonical
+cases:
 
 ```ts
 public constructor(
-  public readonly thumbnailUrl: string,
-  public readonly imageUrl: string
+  public readonly title: string,
+  public readonly url: string,
+  public readonly description: string
 ) {}
 ```
 
@@ -204,10 +208,12 @@ The "next line" control flow produces the project's distinctive `}` then
 ## Comments
 
 The `src/` classes are **not** JSDoc-documented — the code carries no `/** ... */`
-class summaries. Comments are sparse and reserved for non-obvious decisions: see
-`// Order is important` above `OPTION_NAMES` in `ImageSearchClient` (the only inline
-comment in the source), which warns that the option order is load-bearing for the
-`f`-parameter encoding ([architecture.md](architecture.md#image-search-and-option-encoding)).
+class summaries. Comments are sparse and reserved for non-obvious decisions:
+`ImageSearchClient` has `// Order is important` above `OPTION_NAMES` (the option
+order is load-bearing for the `f`-parameter encoding,
+[architecture.md](architecture.md#image-search-and-option-encoding)), and
+`WebSearchClient` carries a few inline notes explaining the browser-header mimicry
+and why the signed `d.js` URL must be scraped rather than constructed.
 
 Test files and `TestHelper.ts` do use `/** ... */` to explain fixtures. Either
 way, `removeComments: true` in `tsconfig.json` strips comments from build output,

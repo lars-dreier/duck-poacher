@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-20T10:21:54Z"
+last_updated: "2026-06-21T10:00:32Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -114,7 +114,9 @@ succeeds, and the export map validates. The package is ESM-first
   [testing.md](testing.md#live-integration-tests).
 - **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
   The barrel exports only the public surface: `DuckDuckGo`, `ImageSearchResult`,
-  and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`, `DdgSearchOptions`,
-  `DdgSize`, `DdgTime`, `DdgType`). The `ImageSearchClient`, `ImageSearchParser`,
-  and the parser's internal interfaces (`DdgResponse`, `DdgResult`) stay
-  unexported — callers get parsed results back from `DuckDuckGo.imageSearch`.
+  `WebSearchResult`, and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`,
+  `DdgSearchOptions`, `DdgSize`, `DdgTime`, `DdgType`). The `ImageSearchClient`,
+  `WebSearchClient`, `ImageSearchParser`, `WebSearchParser`, and the parsers'
+  internal interfaces (`DdgResponse`, `DdgResult`, `DdgWebResult`) stay
+  unexported — callers get parsed results back from `DuckDuckGo.imageSearch` and
+  `DuckDuckGo.webSearch`.

@@ -2,13 +2,13 @@
 
 ## [architecture.md](architecture.md)
 
-How duck-poacher works inside: the `DuckDuckGo` facade over `ImageSearchClient` plus `ImageSearchParser`, the token→search→parse flow, option encoding, data models, and DuckDuckGo protocol quirks.
+How duck-poacher works inside: the `DuckDuckGo` facade over `ImageSearchClient` and `WebSearchClient` (each with its own parser and result type), the token→search→parse flow for both image and web search, option encoding, data models, and DuckDuckGo protocol quirks.
 
 **Use when:**
 
-- Changing search behavior, option encoding, or response parsing
-- Understanding how DuckDuckGo delegates to ImageSearchClient and ImageSearchParser
-- Debugging DuckDuckGo protocol quirks or error handling
+- Changing image or web search behavior, option encoding, or response parsing
+- Understanding how DuckDuckGo delegates to the image/web clients and parsers
+- Debugging DuckDuckGo protocol quirks (vqd token, signed d.js URL) or error handling
 
 ## [code-style.md](code-style.md)
 
@@ -31,7 +31,7 @@ How to build, type-check, lint, format, and publish: dual tsconfig setup, dual E
 
 ## [overview.md](overview.md)
 
-What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo` + `ImageSearchResult`), a runnable usage example, and the project layout.
+What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo` with `imageSearch`/`webSearch`, plus `ImageSearchResult` and `WebSearchResult`), runnable usage examples, and the project layout.
 
 **Use when:**
 
@@ -41,7 +41,7 @@ What duck-poacher is: its stack, install steps, the public API surface (`DuckDuc
 
 ## [testing.md](testing.md)
 
-How the test suite is structured and run: the node:test runner via tsx, the live `DuckDuckGo`/`ImageSearchClient` integration specs, the offline parser/value-object specs, shared fixtures, and conventions.
+How the test suite is structured and run: the node:test runner via tsx, the live `DuckDuckGo`/`ImageSearchClient`/`WebSearchClient` integration specs, the offline parser/value-object specs, shared fixtures, and conventions.
 
 **Use when:**
 
