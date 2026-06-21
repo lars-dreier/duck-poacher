@@ -1,10 +1,11 @@
 # duck-poacher
 
-A Node.js library for image search via DuckDuckGo. Returns image and thumbnail
-URLs for a query, with optional filters for size, color, type, and more.
+A Node.js library for image and web search via DuckDuckGo. Image search returns
+image and thumbnail URLs for a query, with optional filters for size, color,
+type, and more; web search returns the title, URL, and description of each result.
 
-It calls DuckDuckGo's image-search endpoints, which are not a public, versioned
-API. Response formats can change on DuckDuckGo's side and break the library.
+It calls DuckDuckGo's search endpoints, which are not a public, versioned API.
+Response formats can change on DuckDuckGo's side and break the library.
 
 ## Install
 
@@ -39,6 +40,22 @@ for (const result of results) {
 }
 ```
 
+For web search, call `webSearch` — it returns a parsed `WebSearchResult[]` (objects
+with `title` / `url` / `description`) and manages the per-session search URL for
+you. It takes no options.
+
+```ts
+import { DuckDuckGo, type WebSearchResult } from 'duck-poacher';
+
+const ddg = new DuckDuckGo();
+
+const results: WebSearchResult[] = await ddg.webSearch('Node.js best practices');
+
+for (const result of results) {
+  console.log(result.title, result.url, result.description);
+}
+```
+
 Each call makes two live requests (mint the token, then search). There is no
 built-in multi-query, dedupe, or cap.
 
@@ -46,9 +63,10 @@ built-in multi-query, dedupe, or cap.
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGo` | class | The client: `imageSearch(query, options?)`, token managed internally |
+| `DuckDuckGo` | class | The client: `imageSearch(query, options?)` and `webSearch(query)`, token managed internally |
 | `ImageSearchResult` | class | Immutable value object `{ thumbnailUrl, imageUrl }` |
-| `DdgSearchOptions` | type | Filter options for `imageSearch` |
+| `WebSearchResult` | class | Immutable value object `{ title, url, description }` |
+| `DdgSearchOptions` | type | Filter options for `imageSearch` (image search only) |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
 
 ### `DuckDuckGo`
@@ -57,6 +75,10 @@ built-in multi-query, dedupe, or cap.
   — generates a per-session `vqd` token, runs the image search, and returns the
   parsed results. Throws `Error('Unable to read token from DuckDuckGo response.')`
   if the token cannot be scraped; a malformed response body throws.
+- **`webSearch(query: string): Promise<WebSearchResult[]>`** — scrapes a per-session
+  signed search URL, runs the web search, and returns the parsed results. Throws
+  `Error('Unable to read search URL from DuckDuckGo response.')` if the URL cannot
+  be scraped; a malformed response body throws.
 
 ### `DdgSearchOptions`
 
@@ -74,9 +96,10 @@ All fields are optional. `safeSearch` is a boolean; the rest are string unions:
 
 ## Error handling
 
-Errors are thrown rather than swallowed. `generateToken` throws if no token can
-be read from the response. HTTP failures (status ≥ 400, network errors,
-timeouts) reject from the underlying request and propagate to the caller.
+Errors are thrown rather than swallowed. Token generation throws if no `vqd` token
+(image search) or signed search URL (web search) can be read from the response.
+HTTP failures (status ≥ 400, network errors, timeouts) reject from the underlying
+request and propagate to the caller.
 
 ## Development
 
