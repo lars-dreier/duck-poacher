@@ -20,4 +20,21 @@ describe('DuckDuckGo', () => {
 			}
 		});
 	});
+
+	describe('webSearch', () => {
+		it('returns parsed web results without a caller-supplied token', { timeout: NETWORK_TIMEOUT_MS }, async () => {
+			// Given the public facade (which manages the search URL internally)
+			const client = new DuckDuckGo();
+
+			// When a web search is performed with no token argument
+			const results = await client.webSearch(TEST_QUERY);
+
+			// Then it returns a non-empty list, each with a title and a valid URL
+			assert.ok(results.length > 0, 'results should not be empty');
+			for (const result of results) {
+				assert.ok(result.title.length > 0, 'title should not be empty');
+				assertHttpUrl(result.url, 'url');
+			}
+		});
+	});
 });

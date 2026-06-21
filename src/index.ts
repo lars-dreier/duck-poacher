@@ -9,3 +9,4 @@ export type {
 	DdgType
 } from './image/ImageSearchClient.ts';
 export { default as ImageSearchResult } from './image/ImageSearchResult.ts';
+export { default as WebSearchResult } from './web/WebSearchResult.ts';
