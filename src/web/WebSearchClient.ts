@@ -12,9 +12,7 @@ export default class WebSearchClient {
 		const params = new URLSearchParams();
 		params.append('q', query);
 		params.append('ia', 'web');
-		params.append('origin', 'funnel_home_website');
 		params.append('t', 'h_');
-		params.append('chip-select', 'search');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
 		const data: string = await this.get(url, this.TOKEN_HEADERS);
