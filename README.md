@@ -66,42 +66,7 @@ for (const result of results) {
 }
 ```
 
-## API
-
-| Export | Kind | Purpose |
-|--------|------|---------|
-| `DuckDuckGo` | class | The client: `imageSearch(query, options?)` and `webSearch(query)`, token managed internally |
-| `ImageSearchResult` | class | Immutable value object `{ thumbnailUrl, imageUrl }` |
-| `WebSearchResult` | class | Immutable value object `{ title, url, description }` |
-| `DdgSearchOptions` | type | Filter options for `imageSearch` (image search only) |
-| `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union option values |
-
-### `DuckDuckGo`
-
-- **`imageSearch(query: string, options?: DdgSearchOptions): Promise<ImageSearchResult[]>`**
-  — generates a per-session `vqd` token, runs the image search, and returns the
-  parsed results. Throws `Error('Unable to read token from DuckDuckGo response.')`
-  if the token cannot be scraped; a malformed response body throws.
-- **`webSearch(query: string): Promise<WebSearchResult[]>`** — scrapes a per-session
-  signed search URL, runs the web search, and returns the parsed results. Throws
-  `Error('Unable to read search URL from DuckDuckGo response.')` if the URL cannot
-  be scraped; a malformed response body throws.
-
-### `DdgSearchOptions`
-
-All fields are optional. `safeSearch` is a boolean; the rest are string unions:
-
-| Option | Type | Values |
-|--------|------|--------|
-| `time` | `DdgTime` | `Day` `Week` `Month` |
-| `size` | `DdgSize` | `Small` `Medium` `Large` `Wallpaper` |
-| `color` | `DdgColor` | `color` `Monochrome` |
-| `type` | `DdgType` | `photo` `clipart` `gif` `transparent` `line` |
-| `layout` | `DdgLayout` | `Square` `Tall` `Wide` |
-| `license` | `DdgLicense` | `Any` `Public` |
-| `safeSearch` | `boolean` | safe search on / off |
-
-## Error handling
+## Error Handling
 
 The client will throw errors in case parsing fails at any stage (Token generation, search results).
 HTTP errors are also propagated.

@@ -3,20 +3,34 @@ import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-
 import ImageSearchParser from './ImageSearchParser.ts';
 import type ImageSearchResult from './ImageSearchResult.ts';
 
+/** Time window the image must fall within. */
 export type DdgTime = 'Day' | 'Week' | 'Month';
+/** Image size bucket. */
 export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
+/** Color filter. */
 export type DdgColor = 'color' | 'Monochrome';
+/** Image kind. */
 export type DdgType = 'photo' | 'clipart' | 'gif' | 'transparent' | 'line';
+/** Aspect-ratio layout. */
 export type DdgLayout = 'Square' | 'Tall' | 'Wide';
+/** Usage-rights filter. */
 export type DdgLicense = 'Any' | 'Public';
 
+/** Filters for `DuckDuckGo.imageSearch`. All fields are optional. */
 export interface DdgSearchOptions {
+	/** Restrict to images from the last day, week, or month. */
 	time?: DdgTime;
+	/** Restrict to a size bucket. */
 	size?: DdgSize;
+	/** Restrict to color or monochrome. */
 	color?: DdgColor;
+	/** Restrict to an image kind (photo, clipart, gif, ...). */
 	type?: DdgType;
+	/** Restrict to an aspect-ratio layout. */
 	layout?: DdgLayout;
+	/** Restrict by usage rights. */
 	license?: DdgLicense;
+	/** Toggle safe search; defaults to off when omitted. */
 	safeSearch?: boolean;
 }
 
