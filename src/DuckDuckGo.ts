@@ -7,12 +7,10 @@ import type WebSearchResult from './web/WebSearchResult.ts';
  * Client for image and web search via DuckDuckGo's undocumented endpoints.
  *
  * Stateless across calls: each search mints a fresh per-request token before
- * running, so a single call makes two live HTTP requests. There is no built-in
- * multi-query, dedupe, or result cap.
+ * running, so a single call makes two live HTTP requests.
  */
 export default class DuckDuckGo {
 	private readonly _imageSearch = new ImageSearchClient();
-
 	private readonly _webSearch = new WebSearchClient();
 
 	/**

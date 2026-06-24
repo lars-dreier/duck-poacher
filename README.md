@@ -30,7 +30,7 @@ each call makes two live requests (mint the token, then search). There is no bui
 
 ### Web Search
 
-For web search, call `webSearch` — it returns a parsed `WebSearchResult[]` (objects with `title` / `url` / `description`).
+`webSearch` returns a parsed `WebSearchResult[]` (objects with `title` / `url` / `description`).
 As of now, it takes no options.
 
 ```ts
