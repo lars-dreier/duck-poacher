@@ -1,11 +1,19 @@
 # duck-poacher
 
-A Node.js library for image and web search via DuckDuckGo. Image search returns
-image and thumbnail URLs for a query, with optional filters for size, color,
-type, and more; web search returns the title, URL, and description of each result.
+A Node.js library for image and web search via DuckDuckGo.
 
-It calls DuckDuckGo's search endpoints, which are not a public, versioned API.
-Response formats can change on DuckDuckGo's side and break the library.
+## The Basics
+
+### Web Search
+Returns the title, URL, and description of each result.
+
+### Image Search
+Returns image and thumbnail URLs for a query, with optional filters for size, color, type, etc.
+
+### Note
+As this is a scraper using a basically undocumented API, it can theoretically break any moment DDG change their structure.
+This project was embedded in another project of mine (before I turned it into a package) where it has been working since ~2022.
+Currently, (besides also using this) I will manually run tests irregularly and in case something breaks, I will try to fix it ASAP.
 
 ## Install
 
@@ -17,9 +25,29 @@ Requires Node.js 18 or newer. The package ships dual ESM/CJS.
 
 ## Usage
 
-`DuckDuckGo` is the client. Construct one and call `imageSearch` — it returns a
-parsed `ImageSearchResult[]` (objects with `imageUrl` and `thumbnailUrl`) and
-manages the per-session `vqd` token for you.
+`DuckDuckGo` is the client. Construct one to get started. Token generation is automatically handled per request meaning
+each call makes two live requests (mint the token, then search). There is no built-in multi-query, dedupe, or cap.
+
+### Web Search
+
+For web search, call `webSearch` — it returns a parsed `WebSearchResult[]` (objects with `title` / `url` / `description`).
+As of now, it takes no options.
+
+```ts
+import { DuckDuckGo, type WebSearchResult } from 'duck-poacher';
+
+const ddg = new DuckDuckGo();
+
+const results: WebSearchResult[] = await ddg.webSearch('Node.js best practices');
+
+for (const result of results) {
+  console.log(result.title, result.url, result.description);
+}
+```
+
+### Image Search
+
+For image search, call `imageSearch` which will then return a parsed `ImageSearchResult[]` (objects with `imageUrl` and `thumbnailUrl`).
 
 ```ts
 import { DuckDuckGo, type DdgSearchOptions, type ImageSearchResult } from 'duck-poacher';
@@ -37,25 +65,6 @@ for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
 }
 ```
-
-For web search, call `webSearch` — it returns a parsed `WebSearchResult[]` (objects
-with `title` / `url` / `description`) and manages the per-session search URL for
-you. It takes no options.
-
-```ts
-import { DuckDuckGo, type WebSearchResult } from 'duck-poacher';
-
-const ddg = new DuckDuckGo();
-
-const results: WebSearchResult[] = await ddg.webSearch('Node.js best practices');
-
-for (const result of results) {
-  console.log(result.title, result.url, result.description);
-}
-```
-
-Each call makes two live requests (mint the token, then search). There is no
-built-in multi-query, dedupe, or cap.
 
 ## API
 
@@ -94,10 +103,8 @@ All fields are optional. `safeSearch` is a boolean; the rest are string unions:
 
 ## Error handling
 
-Errors are thrown rather than swallowed. Token generation throws if no `vqd` token
-(image search) or signed search URL (web search) can be read from the response.
-HTTP failures (status ≥ 400, network errors, timeouts) reject from the underlying
-request and propagate to the caller.
+The client will throw errors in case parsing fails at any stage (Token generation, search results).
+HTTP errors are also propagated.
 
 ## Contributing
 
