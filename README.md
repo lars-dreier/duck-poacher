@@ -13,7 +13,7 @@ Returns image and thumbnail URLs for a query, with optional filters for size, co
 ### Note
 As this is a scraper using a basically undocumented API, it can theoretically break any moment DDG change their structure.
 This project was embedded in another project of mine (before I turned it into a package) where it has been working since ~2022.
-Currently, (besides also using this) I will manually run tests irregularly and in case something breaks, I will try to fix it ASAP.
+Currently, I will manually run tests irregularly and in case something breaks, I will try to fix it ASAP.
 
 ## Install
 
@@ -38,7 +38,7 @@ import { DuckDuckGo, type WebSearchResult } from 'duck-poacher';
 
 const ddg = new DuckDuckGo();
 
-const results: WebSearchResult[] = await ddg.webSearch('Node.js best practices');
+const results: WebSearchResult[] = await ddg.webSearch('how to stop using node');
 
 for (const result of results) {
   console.log(result.title, result.url, result.description);
@@ -59,7 +59,7 @@ const options: DdgSearchOptions = {
   layout: 'Square',
   safeSearch: true,
 };
-const results: ImageSearchResult[] = await ddg.imageSearch('mountain landscape', options);
+const results: ImageSearchResult[] = await ddg.imageSearch('ducks with human feet', options);
 
 for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
