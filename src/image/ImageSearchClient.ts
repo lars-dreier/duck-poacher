@@ -2,7 +2,6 @@ import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-
 import type * as http from 'node:http';
 import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
 import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
-import { SafeSearchParam } from '../common/SafeSearchParam.ts';
 import type { DdgImageSearchOptions } from './DdgImageSearchOptions.ts';
 import type ImageSearchParser from './ImageSearchParser.ts';
 import type ImageSearchResult from './ImageSearchResult.ts';
@@ -93,7 +92,7 @@ export default class ImageSearchClient {
 		params.append('vqd', token);
 		params.append('f', this.createImageSearchOptionsHeader(options));
 		// i.js also carries the level as its `p` parameter, alongside the `p` cookie GlobalSearchOptions sets.
-		params.append('p', SafeSearchParam[options.safeSearch ?? 'Moderate']);
+		params.append('p', new GlobalSearchOptions(options).safeSearchParam);
 
 		return `https://duckduckgo.com/i.js?${params.toString()}`;
 	}

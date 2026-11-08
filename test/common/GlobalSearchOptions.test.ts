@@ -61,4 +61,50 @@ describe('GlobalSearchOptions', () => {
 			assert.deepEqual(base, { dnt: '1' });
 		});
 	});
+
+	describe('safeSearchParam', () => {
+		it("returns DDG's off value when safe search is Off", () => {
+			// Given options with safe search turned off
+			const options = new GlobalSearchOptions({ safeSearch: 'Off' });
+
+			// When the parameter is read
+			const param: string = options.safeSearchParam;
+
+			// Then it is DDG's "off" value
+			assert.equal(param, '-2');
+		});
+
+		it("returns DDG's moderate value when safe search is Moderate", () => {
+			// Given options with moderate safe search
+			const options = new GlobalSearchOptions({ safeSearch: 'Moderate' });
+
+			// When the parameter is read
+			const param: string = options.safeSearchParam;
+
+			// Then it is DDG's "moderate" value
+			assert.equal(param, '-1');
+		});
+
+		it("returns DDG's strict value when safe search is Strict", () => {
+			// Given options with strict safe search
+			const options = new GlobalSearchOptions({ safeSearch: 'Strict' });
+
+			// When the parameter is read
+			const param: string = options.safeSearchParam;
+
+			// Then it is DDG's "strict" value
+			assert.equal(param, '1');
+		});
+
+		it('defaults to the moderate value when no options are given', () => {
+			// Given options constructed without arguments
+			const options = new GlobalSearchOptions();
+
+			// When the parameter is read
+			const param: string = options.safeSearchParam;
+
+			// Then DDG's moderate default applies
+			assert.equal(param, '-1');
+		});
+	});
 });
