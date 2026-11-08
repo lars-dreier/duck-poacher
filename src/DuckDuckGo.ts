@@ -1,3 +1,4 @@
+import DdgHttpClient from './common/DdgHttpClient.ts';
 import type { DdgSearchOptions } from './common/DdgSearchOptions.ts';
 import type { DdgImageSearchOptions } from './image/DdgImageSearchOptions.ts';
 import ImageSearchClient from './image/ImageSearchClient.ts';
@@ -12,11 +13,17 @@ import type WebSearchResult from './web/WebSearchResult.ts';
  *
  * Stateless across calls: each search mints a fresh per-request token before
  * running, so a single call makes two live HTTP requests. The library's composition root: it builds the
- * clients and their parsers.
+ * clients and their dependencies.
  */
 export default class DuckDuckGo {
-	private readonly _imageSearch: ImageSearchClient = new ImageSearchClient(new ImageSearchParser());
-	private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser());
+	private readonly _imageSearch: ImageSearchClient = new ImageSearchClient(
+		new ImageSearchParser(),
+		new DdgHttpClient()
+	);
+	private readonly _webSearch: WebSearchClient = new WebSearchClient(
+		new WebSearchParser(),
+		new DdgHttpClient()
+	);
 
 	/**
 	 * Runs an image search.

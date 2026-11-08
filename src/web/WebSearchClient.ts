@@ -1,7 +1,6 @@
-import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
 import type * as http from 'node:http';
+import type DdgHttpClient from '../common/DdgHttpClient.ts';
 import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
-import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
 import type WebSearchParser from './WebSearchParser.ts';
 import type WebSearchResult from './WebSearchResult.ts';
 
@@ -37,7 +36,10 @@ export default class WebSearchClient {
 	// d.js URL is scraped from the page rather than built from a vqd (unlike the image client).
 	private static readonly SEARCH_URL_REGEX: RegExp = /https:\/\/links\.duckduckgo\.com\/d\.js\?[^"']+/;
 
-	public constructor(private readonly _parser: WebSearchParser) {}
+	public constructor(
+		private readonly _parser: WebSearchParser,
+		private readonly _httpClient: DdgHttpClient,
+	) {}
 
 	// The safe search level is baked into the signed d.js URL at this step, so the cookie must be
 	// sent here; it cannot be applied to the scraped URL afterwards.
@@ -48,7 +50,11 @@ export default class WebSearchClient {
 		params.append('t', 'h_');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
-		const data: string = await this.get(url, new GlobalSearchOptions(options).apply(WebSearchClient.TOKEN_HEADERS));
+		const data: string = await this._httpClient.get(
+			url,
+			WebSearchClient.TOKEN_HEADERS,
+			options
+		);
 		const match: RegExpMatchArray | null = data.match(WebSearchClient.SEARCH_URL_REGEX);
 		const searchUrl: string | undefined = match?.[0];
 
@@ -61,19 +67,12 @@ export default class WebSearchClient {
 
 	// A browser sends the cookie with the d.js request too, so mirror that.
 	public async webSearch(query: string, searchUrl: string, options?: DdgSearchOptions): Promise<WebSearchResult[]> {
-		const responseText: string = await this.get(
+		const responseText: string = await this._httpClient.get(
 			searchUrl,
-			new GlobalSearchOptions(options).apply(WebSearchClient.SEARCH_HEADERS)
+			WebSearchClient.SEARCH_HEADERS,
+			options
 		);
 
 		return this._parser.parse(responseText);
-	}
-
-	private async get(url: string, headers: http.OutgoingHttpHeaders): Promise<string> {
-		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, headers);
-		const response: http.IncomingMessage = await request.resolve();
-		const reader = new HttpResponseReader();
-
-		return reader.readData(response);
 	}
 }
