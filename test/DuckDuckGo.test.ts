@@ -36,5 +36,20 @@ describe('DuckDuckGo', () => {
 				assertHttpUrl(result.url, 'url');
 			}
 		});
+
+		it('returns parsed web results with a safe search option', { timeout: NETWORK_TIMEOUT_MS }, async () => {
+			// Given the public facade
+			const client = new DuckDuckGo();
+
+			// When a web search is performed with strict safe search
+			const results = await client.webSearch(TEST_QUERY, { safeSearch: 'Strict' });
+
+			// Then it returns a non-empty list, each with a title and a valid URL
+			assert.ok(results.length > 0, 'results should not be empty');
+			for (const result of results) {
+				assert.ok(result.title.length > 0, 'title should not be empty');
+				assertHttpUrl(result.url, 'url');
+			}
+		});
 	});
 });

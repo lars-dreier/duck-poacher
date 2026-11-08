@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import ImageSearchParser from '../../src/image/ImageSearchParser.ts';
+import type ImageSearchResult from '../../src/image/ImageSearchResult.ts';
 
 describe('ImageSearchParser', () => {
 	describe('parse', () => {
@@ -15,7 +16,7 @@ describe('ImageSearchParser', () => {
 			});
 
 			// When the response is parsed
-			const results = parser.parse(responseText);
+			const results: ImageSearchResult[] = parser.parse(responseText);
 
 			// Then each result keeps DDG's image→imageUrl and thumbnail→thumbnailUrl mapping
 			assert.equal(results.length, 2);
@@ -31,7 +32,7 @@ describe('ImageSearchParser', () => {
 			const responseText: string = JSON.stringify({ results: [] });
 
 			// When the response is parsed
-			const results = parser.parse(responseText);
+			const results: ImageSearchResult[] = parser.parse(responseText);
 
 			// Then the parsed list is empty
 			assert.equal(results.length, 0);

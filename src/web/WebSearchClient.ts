@@ -1,17 +1,19 @@
-import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
-import WebSearchParser from './WebSearchParser.ts';
+import type * as http from 'node:http';
+import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
+import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
+import type WebSearchParser from './WebSearchParser.ts';
 import type WebSearchResult from './WebSearchResult.ts';
 
 export default class WebSearchClient {
-	private readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
+	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1'
 	};
 
 	// Modern Chrome on Windows. The browser loads d.js via a <script> tag, so this mirrors a
 	// script request (sec-fetch-dest: script, no x-requested-with). accept-encoding omits zstd
 	// because HttpResponseReader cannot decode it. The sec-ch-ua versions must track the user-agent.
-	private readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
+	private static readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1',
 		'user-agent':
 			'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
@@ -29,19 +31,21 @@ export default class WebSearchClient {
 
 	// The web endpoint gates on a signed `dp` blob that only DDG's page JS can mint, so the full
 	// d.js URL is scraped from the page rather than built from a vqd (unlike the image client).
-	private readonly SEARCH_URL_REGEX = /https:\/\/links\.duckduckgo\.com\/d\.js\?[^"']+/;
+	private static readonly SEARCH_URL_REGEX: RegExp = /https:\/\/links\.duckduckgo\.com\/d\.js\?[^"']+/;
 
-	private readonly _parser = new WebSearchParser();
+	public constructor(private readonly _parser: WebSearchParser) {}
 
-	public async generateToken(query: string): Promise<string> {
+	// The safe search level is baked into the signed d.js URL at this step, so the cookie must be
+	// sent here; it cannot be applied to the scraped URL afterwards.
+	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
 		const params = new URLSearchParams();
 		params.append('q', query);
 		params.append('ia', 'web');
 		params.append('t', 'h_');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
-		const data: string = await this.get(url, this.TOKEN_HEADERS);
-		const match: RegExpMatchArray | null = data.match(this.SEARCH_URL_REGEX);
+		const data: string = await this.get(url, new GlobalSearchOptions(options).apply(WebSearchClient.TOKEN_HEADERS));
+		const match: RegExpMatchArray | null = data.match(WebSearchClient.SEARCH_URL_REGEX);
 		const searchUrl: string | undefined = match?.[0];
 
 		if (searchUrl == null) {
@@ -51,8 +55,12 @@ export default class WebSearchClient {
 		return searchUrl;
 	}
 
-	public async webSearch(query: string, searchUrl: string): Promise<WebSearchResult[]> {
-		const responseText: string = await this.get(searchUrl, this.SEARCH_HEADERS);
+	// A browser sends the cookie with the d.js request too, so mirror that.
+	public async webSearch(query: string, searchUrl: string, options?: DdgSearchOptions): Promise<WebSearchResult[]> {
+		const responseText: string = await this.get(
+			searchUrl,
+			new GlobalSearchOptions(options).apply(WebSearchClient.SEARCH_HEADERS)
+		);
 
 		return this._parser.parse(responseText);
 	}

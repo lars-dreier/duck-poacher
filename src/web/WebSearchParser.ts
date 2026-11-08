@@ -1,7 +1,7 @@
 import WebSearchResult from './WebSearchResult.ts';
 
 export default class WebSearchParser {
-	private readonly RESULTS_MARKER: string = "DDG.pageLayout.load('d',";
+	private static readonly RESULTS_MARKER: string = "DDG.pageLayout.load('d',";
 
 	public parse(responseText: string): WebSearchResult[] {
 		const entries: DdgWebResult[] = this.extractResults(responseText);

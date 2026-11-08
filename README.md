@@ -31,14 +31,14 @@ each call makes two live requests (mint the token, then search). There is no bui
 ### Web Search
 
 `webSearch` returns a parsed `WebSearchResult[]` (objects with `title` / `url` / `description`).
-As of now, it takes no options.
+It optionally takes `DdgSearchOptions`, the options every search accepts (see [Safe Search](#safe-search)).
 
 ```ts
 import { DuckDuckGo, type WebSearchResult } from 'duck-poacher';
 
 const ddg = new DuckDuckGo();
 
-const results: WebSearchResult[] = await ddg.webSearch('how to stop using node');
+const results: WebSearchResult[] = await ddg.webSearch('how to stop using node', { safeSearch: 'Strict' });
 
 for (const result of results) {
   console.log(result.title, result.url, result.description);
@@ -50,14 +50,14 @@ for (const result of results) {
 For image search, call `imageSearch` which will then return a parsed `ImageSearchResult[]` (objects with `imageUrl` and `thumbnailUrl`).
 
 ```ts
-import { DuckDuckGo, type DdgSearchOptions, type ImageSearchResult } from 'duck-poacher';
+import { DuckDuckGo, type DdgImageSearchOptions, type ImageSearchResult } from 'duck-poacher';
 
 const ddg = new DuckDuckGo();
 
-const options: DdgSearchOptions = {
+const options: DdgImageSearchOptions = {
   size: 'Large',
   layout: 'Square',
-  safeSearch: true,
+  safeSearch: 'Strict',
 };
 const results: ImageSearchResult[] = await ddg.imageSearch('ducks with human feet', options);
 
@@ -65,6 +65,12 @@ for (const result of results) {
   console.log(result.imageUrl, result.thumbnailUrl);
 }
 ```
+
+### Safe Search
+
+Safe search is a DuckDuckGo-wide setting, so both `webSearch` and `imageSearch` accept it through `DdgSearchOptions`
+(`DdgImageSearchOptions` extends it with the image filters). `safeSearch` is `'Off'`, `'Moderate'` or `'Strict'`; when
+omitted, DuckDuckGo's own default (`'Moderate'`) applies.
 
 ## Error Handling
 

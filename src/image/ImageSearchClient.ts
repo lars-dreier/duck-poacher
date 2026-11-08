@@ -1,5 +1,6 @@
 import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
+import GlobalSearchOptions, { type DdgSearchOptions, SafeSearchParam } from '../common/GlobalSearchOptions.ts';
 import ImageSearchParser from './ImageSearchParser.ts';
 import type ImageSearchResult from './ImageSearchResult.ts';
 
@@ -16,8 +17,8 @@ export type DdgLayout = 'Square' | 'Tall' | 'Wide';
 /** Usage-rights filter. */
 export type DdgLicense = 'Any' | 'Public';
 
-/** Filters for `DuckDuckGo.imageSearch`. All fields are optional. */
-export interface DdgSearchOptions {
+/** Options for `DuckDuckGo.imageSearch`: the shared options plus image filters. All fields are optional. */
+export interface DdgImageSearchOptions extends DdgSearchOptions {
 	/** Restrict to images from the last day, week, or month. */
 	time?: DdgTime;
 	/** Restrict to a size bucket. */
@@ -30,8 +31,6 @@ export interface DdgSearchOptions {
 	layout?: DdgLayout;
 	/** Restrict by usage rights. */
 	license?: DdgLicense;
-	/** Toggle safe search; defaults to off when omitted. */
-	safeSearch?: boolean;
 }
 
 export default class ImageSearchClient {
@@ -54,11 +53,11 @@ export default class ImageSearchClient {
 		authority: 'duckduckgo.com'
 	};
 
-	private readonly TOKEN_REGEX = /vqd=(?<vqd>[\d-]+)/;
+	private static readonly TOKEN_REGEX: RegExp = /vqd=(?<vqd>[\d-]+)/;
 
 	private readonly _parser = new ImageSearchParser();
 
-	public async generateToken(query: string): Promise<string> {
+	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
 		const params = new URLSearchParams();
 		params.append('q', query);
 		params.append('atb', 'v299-1');
@@ -67,8 +66,8 @@ export default class ImageSearchClient {
 		params.append('ia', 'images');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
-		const data: string = await this.get(url, this.TOKEN_HEADERS);
-		const match: RegExpMatchArray | null = data.match(this.TOKEN_REGEX);
+		const data: string = await this.get(url, new GlobalSearchOptions(options).apply(ImageSearchClient.TOKEN_HEADERS));
+		const match: RegExpMatchArray | null = data.match(ImageSearchClient.TOKEN_REGEX);
 		const vqd: string | undefined = match?.groups?.['vqd'];
 
 		if (vqd == null) {
@@ -81,11 +80,14 @@ export default class ImageSearchClient {
 	public async imageSearch(
 		query: string,
 		token: string,
-		options?: DdgSearchOptions,
+		options?: DdgImageSearchOptions,
 	): Promise<ImageSearchResult[]> {
-		const searchOptions: DdgSearchOptions = options ?? {};
+		const searchOptions: DdgImageSearchOptions = options ?? {};
 		const url: string = this.createSearchUrl(query, token, searchOptions);
-		const responseText: string = await this.get(url, this.SEARCH_HEADERS);
+		const responseText: string = await this.get(
+			url,
+			new GlobalSearchOptions(searchOptions).apply(ImageSearchClient.SEARCH_HEADERS)
+		);
 
 		return this._parser.parse(responseText);
 	}
@@ -98,23 +100,24 @@ export default class ImageSearchClient {
 		return reader.readData(response);
 	}
 
-	private createSearchUrl(query: string, token: string, options: DdgSearchOptions): string {
+	private createSearchUrl(query: string, token: string, options: DdgImageSearchOptions): string {
 		const params = new URLSearchParams();
 		params.append('l', 'de-de');
 		params.append('o', 'json');
 		params.append('q', query);
 		params.append('vqd', token);
 		params.append('f', this.createImageSearchOptionsHeader(options));
-		params.append('p', options.safeSearch == true ? '1' : '-1');
+		// i.js also carries the level as its `p` parameter, alongside the `p` cookie GlobalSearchOptions sets.
+		params.append('p', SafeSearchParam[options.safeSearch ?? 'Moderate']);
 
 		return `https://duckduckgo.com/i.js?${params.toString()}`;
 	}
 
-	private createImageSearchOptionsHeader(options: DdgSearchOptions): string {
+	private createImageSearchOptionsHeader(options: DdgImageSearchOptions): string {
 		const optionValues: string[] = [];
 
 		for (const optionName of this.OPTION_NAMES) {
-			const optionValue: string | undefined = options[optionName as keyof DdgSearchOptions]?.toString();
+			const optionValue: string | undefined = options[optionName as keyof DdgImageSearchOptions]?.toString();
 
 			if (optionValue == null) {
 				optionValues.push('');
