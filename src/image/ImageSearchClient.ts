@@ -13,7 +13,14 @@ import type ImageSearchResult from './ImageSearchResult.ts';
  */
 export default class ImageSearchClient {
 	// Order is important
-	private static readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
+	private static readonly OPTION_NAMES: Exclude<keyof DdgImageSearchOptions, keyof DdgSearchOptions>[] = [
+		'time',
+		'size',
+		'color',
+		'type',
+		'layout',
+		'license'
+	];
 
 	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1'
@@ -95,7 +102,7 @@ export default class ImageSearchClient {
 		const optionValues: string[] = [];
 
 		for (const optionName of ImageSearchClient.OPTION_NAMES) {
-			const optionValue: string | undefined = options[optionName as keyof DdgImageSearchOptions]?.toString();
+			const optionValue: string | undefined = options[optionName];
 
 			if (optionValue == null) {
 				optionValues.push('');
