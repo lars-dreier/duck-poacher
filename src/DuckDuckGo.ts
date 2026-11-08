@@ -11,7 +11,8 @@ import type WebSearchResult from './web/WebSearchResult.ts';
  * Client for image and web search via DuckDuckGo's undocumented endpoints.
  *
  * Stateless across calls: each search mints a fresh per-request token before
- * running, so a single call makes two live HTTP requests.
+ * running, so a single call makes two live HTTP requests. The library's composition root: it builds the
+ * clients and their parsers.
  */
 export default class DuckDuckGo {
 	private readonly _imageSearch: ImageSearchClient = new ImageSearchClient(new ImageSearchParser());

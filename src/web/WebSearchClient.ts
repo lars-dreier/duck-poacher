@@ -5,6 +5,10 @@ import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
 import type WebSearchParser from './WebSearchParser.ts';
 import type WebSearchResult from './WebSearchResult.ts';
 
+/**
+ * Talks to DuckDuckGo's web endpoint: scrapes the signed `links.duckduckgo.com/d.js` URL from the search page, then
+ * fetches it with browser-like script headers. The safe search level is fixed into that URL when it is scraped.
+ */
 export default class WebSearchClient {
 	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1'

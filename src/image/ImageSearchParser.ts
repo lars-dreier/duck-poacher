@@ -1,9 +1,12 @@
 import ImageSearchResult from './ImageSearchResult.ts';
 
+/**
+ * Parses an `i.js` JSON body into `ImageSearchResult`s. Throws on a body that is not JSON or lacks `results`.
+ */
 export default class ImageSearchParser {
 	public parse(responseText: string): ImageSearchResult[] {
 		const jsonObject: unknown = JSON.parse(responseText);
-		const parsedResults: DdgResult[] = (jsonObject as DdgResponse).results;
+		const parsedResults: IDdgResult[] = (jsonObject as IDdgResponse).results;
 		const searchResults: ImageSearchResult[] = [];
 
 		for (const result of parsedResults) {
@@ -14,11 +17,11 @@ export default class ImageSearchParser {
 	}
 }
 
-interface DdgResponse {
-	results: DdgResult[];
+interface IDdgResponse {
+	results: IDdgResult[];
 }
 
-interface DdgResult {
+interface IDdgResult {
 	image: string;
 	thumbnail: string;
 }

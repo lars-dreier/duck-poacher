@@ -1,47 +1,25 @@
-import * as http from 'http';
 import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
-import GlobalSearchOptions, { type DdgSearchOptions, SafeSearchParam } from '../common/GlobalSearchOptions.ts';
-import ImageSearchParser from './ImageSearchParser.ts';
+import type * as http from 'node:http';
+import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
+import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
+import { SafeSearchParam } from '../common/SafeSearchParam.ts';
+import type { DdgImageSearchOptions } from './DdgImageSearchOptions.ts';
+import type ImageSearchParser from './ImageSearchParser.ts';
 import type ImageSearchResult from './ImageSearchResult.ts';
 
-/** Time window the image must fall within. */
-export type DdgTime = 'Day' | 'Week' | 'Month';
-/** Image size bucket. */
-export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
-/** Color filter. */
-export type DdgColor = 'color' | 'Monochrome';
-/** Image kind. */
-export type DdgType = 'photo' | 'clipart' | 'gif' | 'transparent' | 'line';
-/** Aspect-ratio layout. */
-export type DdgLayout = 'Square' | 'Tall' | 'Wide';
-/** Usage-rights filter. */
-export type DdgLicense = 'Any' | 'Public';
-
-/** Options for `DuckDuckGo.imageSearch`: the shared options plus image filters. All fields are optional. */
-export interface DdgImageSearchOptions extends DdgSearchOptions {
-	/** Restrict to images from the last day, week, or month. */
-	time?: DdgTime;
-	/** Restrict to a size bucket. */
-	size?: DdgSize;
-	/** Restrict to color or monochrome. */
-	color?: DdgColor;
-	/** Restrict to an image kind (photo, clipart, gif, ...). */
-	type?: DdgType;
-	/** Restrict to an aspect-ratio layout. */
-	layout?: DdgLayout;
-	/** Restrict by usage rights. */
-	license?: DdgLicense;
-}
-
+/**
+ * Talks to DuckDuckGo's image endpoint: scrapes a per-query `vqd` token from the search page, then fetches `i.js`
+ * with the token, the positional `f` filter string and the safe search level.
+ */
 export default class ImageSearchClient {
 	// Order is important
-	private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
+	private static readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
 
-	private readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
+	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1'
 	};
 
-	private readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
+	private static readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1',
 		'accept-encoding': 'gzip, deflate, sdch, br',
 		'x-requested-with': 'XMLHttpRequest',
@@ -55,7 +33,7 @@ export default class ImageSearchClient {
 
 	private static readonly TOKEN_REGEX: RegExp = /vqd=(?<vqd>[\d-]+)/;
 
-	private readonly _parser = new ImageSearchParser();
+	public constructor(private readonly _parser: ImageSearchParser) {}
 
 	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
 		const params = new URLSearchParams();
@@ -116,7 +94,7 @@ export default class ImageSearchClient {
 	private createImageSearchOptionsHeader(options: DdgImageSearchOptions): string {
 		const optionValues: string[] = [];
 
-		for (const optionName of this.OPTION_NAMES) {
+		for (const optionName of ImageSearchClient.OPTION_NAMES) {
 			const optionValue: string | undefined = options[optionName as keyof DdgImageSearchOptions]?.toString();
 
 			if (optionValue == null) {

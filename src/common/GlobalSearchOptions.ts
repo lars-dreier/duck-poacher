@@ -1,22 +1,11 @@
-import type * as http from 'http';
+import type * as http from 'node:http';
+import type { DdgSafeSearch, DdgSearchOptions } from './DdgSearchOptions.ts';
+import { SafeSearchParam } from './SafeSearchParam.ts';
 
-/** Safe search level. `Moderate` is DuckDuckGo's own default. */
-export type DdgSafeSearch = 'Off' | 'Moderate' | 'Strict';
-
-/** Options shared by every DuckDuckGo search. All fields are optional. */
-export interface DdgSearchOptions {
-	/** Safe search level; defaults to `Moderate` when omitted. */
-	safeSearch?: DdgSafeSearch;
-}
-
-// DDG's value for each safe search level, shared by the `p` cookie and i.js's `p` URL parameter.
-export const SafeSearchParam = {
-	Off: '-2',
-	Moderate: '-1',
-	Strict: '1'
-} as const satisfies Record<DdgSafeSearch, string>;
-export type SafeSearchParam = typeof SafeSearchParam[keyof typeof SafeSearchParam];
-
+/**
+ * Applies the options every DuckDuckGo search shares to a request's headers. Safe search travels as DDG's `p`
+ * cookie; `Moderate`, DDG's default, sends no cookie.
+ */
 export default class GlobalSearchOptions {
 	public constructor(private readonly _options: DdgSearchOptions = {}) {}
 
@@ -27,7 +16,6 @@ export default class GlobalSearchOptions {
 		return cookie == null ? { ...headers } : { ...headers, cookie };
 	}
 
-	// Moderate is DDG's default, which it expresses as the absence of the cookie.
 	private createSafeSearchCookie(safeSearch: DdgSafeSearch): string | undefined {
 		switch (safeSearch) {
 			case 'Off':

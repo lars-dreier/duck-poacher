@@ -49,12 +49,62 @@ export default tseslint.config(
 				{
 					selector: 'TSEnumDeclaration',
 					message: 'Use the const-object enum pattern instead of `enum` (see code-style.md).'
+				},
+				{
+					// Explicit types on every variable, destructuring included. Exempt: for...of/for...in variables
+					// (TypeScript allows no annotation) and initializers that already name the type (`new X()`,
+					// `x as T` including const-object enums, arrows with a declared return type).
+					selector: 'VariableDeclarator'
+						+ ':not([id.typeAnnotation])'
+						+ ':not(:matches(ForOfStatement, ForInStatement) > VariableDeclaration > VariableDeclarator)'
+						+ ':not([init.type="NewExpression"])'
+						+ ':not([init.type="TSAsExpression"])'
+						+ ':not([init.type="ArrowFunctionExpression"][init.returnType])',
+					message: 'Declare the variable type explicitly (see code-style.md).'
 				}
 			],
 
+			// --- Code style (code-style.md) -----------------------------------------
+
+			'@typescript-eslint/naming-convention': [
+				'error',
+				{ selector: 'interface', format: ['PascalCase'], prefix: ['I'] },
+				// fields only: private methods stay plain camelCase
+				{
+					selector: ['classProperty', 'parameterProperty', 'accessor'],
+					modifiers: ['private'],
+					format: ['camelCase'],
+					leadingUnderscore: 'require'
+				},
+				// constants, private ones included: listing `private` makes this more specific than the field rule above
+				{ selector: 'classProperty', modifiers: ['static', 'readonly'], format: ['UPPER_CASE'] },
+				{ selector: 'classProperty', modifiers: ['private', 'static', 'readonly'], format: ['UPPER_CASE'] }
+			],
+			'@typescript-eslint/member-ordering': ['error', {
+				default: [
+					'static-field',
+					'public-instance-field',
+					['public-get', 'public-set'],
+					'instance-readonly-field',
+					'instance-field',
+					'static-method',
+					'constructor',
+					'public-instance-method',
+					'protected-instance-method',
+					'private-instance-method'
+				]
+			}],
+			'@typescript-eslint/explicit-function-return-type': ['error', {
+				allowExpressions: true,
+				allowTypedFunctionExpressions: true
+			}],
+
 			// --- Quality / bug-class rules ----------------------------------------
 
-			// Catch unawaited promises — a common defect in async tool loops.
+			// Parameters an interface requires but an implementation ignores are prefixed with `_`.
+			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+
+			// Catch unawaited promises. Mark deliberate fire-and-forget calls with `void`.
 			'@typescript-eslint/no-floating-promises': 'error'
 		}
 	},

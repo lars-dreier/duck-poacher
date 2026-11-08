@@ -1,4 +1,6 @@
-/** A single image search hit. Immutable. */
+/**
+ * A single image search hit. Immutable.
+ */
 export default class ImageSearchResult {
 	public constructor(
 		/** URL of the thumbnail-sized image. */
