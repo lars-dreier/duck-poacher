@@ -88,18 +88,13 @@ to the naming rule: it only re-exports.
 
 Members appear in this order **[lint]**:
 
-1. Static fields (`private static readonly SEARCH_HEADERS`)
-2. Public mutable instance fields
-3. Public getters and setters, each setter directly after its getter (adjacency is checked in review)
-4. Readonly instance fields, `public readonly` included
-5. Non-public mutable instance fields
-6. Static methods
-7. Constructor
-8. Public methods
-9. Protected methods
-10. Private methods
+1. Fields (`private static readonly SEARCH_HEADERS`)
+2. Constructor
+3. Getters and setters, each setter directly after its getter (adjacency is checked in review)
+4. Methods
 
-Within a group, keep related members together rather than sorting alphabetically.
+Within fields, getters/setters and methods, static members come before instance members, and each of those runs
+public, protected, private. Within that, keep related members together rather than sorting alphabetically.
 
 ```ts
 /**
@@ -214,8 +209,8 @@ From `dprint.json` **[fmt]**:
 
 ## Comments
 
-Every class carries a `/** ... */` JSDoc summary describing what it does and its salient behaviors (what it
-scrapes, what it throws on). The public surface (`DuckDuckGo`'s methods, the exported option types and result
+Every class carries a short `/** ... */` JSDoc summary, ideally one sentence, saying what it does. Add a salient
+behavior (what it scrapes, what it throws on) only when the signature and code don't show it. The public surface (`DuckDuckGo`'s methods, the exported option types and result
 properties) is documented member by member. Inline comments are reserved for non-obvious decisions:
 `// Order is important` above `OPTION_NAMES`, the browser-header mimicry in `WebSearchClient`, why the signed
 `d.js` URL is scraped rather than built.

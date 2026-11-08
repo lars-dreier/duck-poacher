@@ -6,6 +6,8 @@ import { SafeSearchParam } from './SafeSearchParam.ts';
  * Translates the options every DuckDuckGo search shares into request headers and URL values.
  */
 export default class GlobalSearchOptions {
+	public constructor(private readonly _options: DdgSearchOptions = {}) {}
+
 	public get safeSearchParam(): SafeSearchParam {
 		return SafeSearchParam[this._safeSearch];
 	}
@@ -13,8 +15,6 @@ export default class GlobalSearchOptions {
 	private get _safeSearch(): DdgSafeSearch {
 		return this._options.safeSearch ?? 'Moderate';
 	}
-
-	public constructor(private readonly _options: DdgSearchOptions = {}) {}
 
 	// Returns a copy: callers pass their shared header constants, which must not pick up a cookie.
 	public apply(headers: http.OutgoingHttpHeaders): http.OutgoingHttpHeaders {
