@@ -2,27 +2,27 @@
 
 ## [architecture.md](architecture.md)
 
-How duck-poacher works inside: the `DuckDuckGo` facade over `ImageSearchClient` and `WebSearchClient` (each with its own parser and result type), the token→search→parse flow for both image and web search, option encoding, data models, and DuckDuckGo protocol quirks.
+How duck-poacher works inside: the `DuckDuckGo` composition root over `ImageSearchClient` and `WebSearchClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, bot-challenge detection, and DuckDuckGo protocol quirks.
 
 **Use when:**
 
-- Changing image or web search behavior, option encoding, or response parsing
-- Understanding how DuckDuckGo delegates to the image/web clients and parsers
-- Debugging DuckDuckGo protocol quirks (vqd token, signed d.js URL) or error handling
+- Changing image or web search behavior, option encoding, safe search, or response parsing
+- Debugging DuckDuckGo protocol quirks (vqd token, signed d.js URL, bot challenges)
+- Deciding what a failure throws or where an error comes from
 
 ## [code-style.md](code-style.md)
 
-Naming, OOP, enum, accessibility, formatting, and import conventions, plus the ESLint/dprint rules that enforce them.
+How code is written: naming, files and classes, member order, access modifiers, dependency injection, types, const-object enums, imports, formatting and comments, with markers for what lint and dprint enforce.
 
 **Use when:**
 
 - Writing new code or reviewing for consistency
-- Deciding naming, access modifiers, or import/`.ts` extension style
-- Resolving an ESLint or dprint formatting issue
+- Deciding naming, member order, constructor injection, or import style
+- Resolving an ESLint or dprint issue
 
 ## [development.md](development.md)
 
-How to build, type-check, lint, format, and publish: dual tsconfig setup, dual ESM/CJS build, and common pitfalls.
+How to build, type-check, lint, format, and publish: required Node version, dual tsconfig setup, dual ESM/CJS build, and common pitfalls.
 
 **Use when:**
 
@@ -31,17 +31,17 @@ How to build, type-check, lint, format, and publish: dual tsconfig setup, dual E
 
 ## [overview.md](overview.md)
 
-What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo` with `imageSearch`/`webSearch`, plus `ImageSearchResult` and `WebSearchResult`), runnable usage examples, and the project layout.
+What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
 
 **Use when:**
 
 - Getting oriented or onboarding to the project
-- Looking up the public API or a usage example
+- Looking up the public API, an option value, or a usage example
 - Finding where something lives in the project structure
 
 ## [testing.md](testing.md)
 
-How the test suite is structured and run: the node:test runner via tsx, the live `DuckDuckGo`/`ImageSearchClient`/`WebSearchClient` integration specs, the offline parser/value-object specs, shared fixtures, and conventions.
+How the test suite is structured and run: the node:test runner via tsx, the live `DuckDuckGo`/`ImageSearchClient`/`WebSearchClient` specs, the offline parser, value-object, error and options specs, shared fixtures, and conventions.
 
 **Use when:**
 
