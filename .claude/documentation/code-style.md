@@ -131,7 +131,8 @@ Every class member declares `public`, `private` or `protected` explicitly, inclu
   `private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser());`.
 - Fixed configuration is a `private static readonly` constant (`SEARCH_HEADERS`, `TOKEN_REGEX`, `OPTION_NAMES`),
   accessed through the class name: `WebSearchClient.SEARCH_HEADERS`.
-- Injected dependencies are constructor parameter properties: `private readonly _parser: WebSearchParser`.
+- Injected dependencies are constructor parameter properties: `private readonly _parser: WebSearchParser`. With more
+  than one, each goes on its own line.
 - Immutable public data uses `public readonly` constructor parameter properties instead of a field plus a getter
   (`ImageSearchResult`, `WebSearchResult`).
 - Anything that never changes after construction is `readonly`.
@@ -206,6 +207,9 @@ From `dprint.json` **[fmt]**:
 | Trailing commas | never (except multi-line parameters: `onlyMultiLine`) |
 | `nextControlFlowPosition` | next line (`}` and `else {` / `catch {` on separate lines) |
 | Line endings | LF |
+
+Calls and `new` expressions with more than one argument put each argument on its own line. This is checked in review,
+and older code has not been migrated yet.
 
 ## Comments
 
