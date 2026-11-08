@@ -1,3 +1,4 @@
+export { default as BotChallengeError } from './common/BotChallengeError.ts';
 export type { DdgSafeSearch, DdgSearchOptions } from './common/DdgSearchOptions.ts';
 export { default as DuckDuckGo } from './DuckDuckGo.ts';
 export type {

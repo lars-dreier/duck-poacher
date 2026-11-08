@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import BotChallengeError from '../../src/common/BotChallengeError.ts';
 import ImageSearchParser from '../../src/image/ImageSearchParser.ts';
 import type ImageSearchResult from '../../src/image/ImageSearchResult.ts';
 
@@ -36,6 +37,34 @@ describe('ImageSearchParser', () => {
 
 			// Then the parsed list is empty
 			assert.equal(results.length, 0);
+		});
+
+		it("throws BotChallengeError with DDG's reason when DDG answers with a challenge", () => {
+			// Given a raw DDG response carrying a bot challenge and no results
+			const parser = new ImageSearchParser();
+			const responseText: string = JSON.stringify({
+				response_type: 'botnet_challenge',
+				challenge: { cc: 'botnet', s: 'images' }
+			});
+
+			// When the response is parsed
+			// Then it fails with a BotChallengeError carrying DDG's category
+			assert.throws(() => parser.parse(responseText), (error: unknown) => {
+				assert.ok(error instanceof BotChallengeError);
+				assert.equal(error.reason, 'botnet');
+
+				return true;
+			});
+		});
+
+		it('reports an unknown reason when the challenge carries no category', () => {
+			// Given a raw DDG challenge without a cc field
+			const parser = new ImageSearchParser();
+			const responseText: string = JSON.stringify({ challenge: {} });
+
+			// When the response is parsed
+			// Then the reason falls back to unknown
+			assert.throws(() => parser.parse(responseText), { name: 'BotChallengeError', reason: 'unknown' });
 		});
 	});
 });

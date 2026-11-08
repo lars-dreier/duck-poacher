@@ -28,8 +28,9 @@ export default class DuckDuckGo {
 	 * @param options - Optional filters (size, color, type, layout, ...) and safe search level
 	 * (DDG's moderate default when omitted).
 	 * @returns The parsed image results.
-	 * @throws If the `vqd` token cannot be scraped from the response, or if the
-	 * search response body cannot be parsed. HTTP errors are propagated.
+	 * @throws `BotChallengeError` if DuckDuckGo answers with a bot challenge. Also throws if the `vqd` token
+	 * cannot be scraped from the response, or if the search response body cannot be parsed. HTTP errors are
+	 * propagated.
 	 */
 	public async imageSearch(query: string, options?: DdgImageSearchOptions): Promise<ImageSearchResult[]> {
 		const token: string = await this._imageSearch.generateToken(query, options);
