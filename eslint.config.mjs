@@ -12,6 +12,39 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+// Three or more arguments go one per line. Fewer are left alone so pairs like `params.append('q', query)` stay
+// readable, which no core rule allows. Breaking before the first argument is what makes dprint keep the layout.
+const argumentsPerLine = {
+	meta: {
+		type: 'layout',
+		fixable: 'whitespace',
+		schema: [],
+		messages: { split: 'Put each argument on its own line when a call has three or more (see code-style.md).' }
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const check = (node) => {
+			if (node.arguments.length < 3) {
+				return;
+			}
+
+			for (const argument of node.arguments) {
+				const firstToken = sourceCode.getFirstToken(argument);
+
+				if (sourceCode.getTokenBefore(firstToken).loc.end.line === firstToken.loc.start.line) {
+					context.report({
+						node: argument,
+						messageId: 'split',
+						fix: (fixer) => fixer.insertTextBefore(firstToken, '\n')
+					});
+				}
+			}
+		};
+
+		return { CallExpression: check, NewExpression: check };
+	}
+};
+
 export default tseslint.config(
 	// Files ESLint should never look at.
 	{
@@ -49,12 +82,71 @@ export default tseslint.config(
 				{
 					selector: 'TSEnumDeclaration',
 					message: 'Use the const-object enum pattern instead of `enum` (see code-style.md).'
+				},
+				{
+					// Explicit types on every variable, destructuring included. Exempt: for...of/for...in variables
+					// (TypeScript allows no annotation) and initializers that already name the type (`new X()`,
+					// `x as T` including const-object enums, arrows with a declared return type).
+					selector: 'VariableDeclarator'
+						+ ':not([id.typeAnnotation])'
+						+ ':not(:matches(ForOfStatement, ForInStatement) > VariableDeclaration > VariableDeclarator)'
+						+ ':not([init.type="NewExpression"])'
+						+ ':not([init.type="TSAsExpression"])'
+						+ ':not([init.type="ArrowFunctionExpression"][init.returnType])',
+					message: 'Declare the variable type explicitly (see code-style.md).'
 				}
 			],
 
+			// --- Code style (code-style.md) -----------------------------------------
+
+			'@typescript-eslint/naming-convention': [
+				'error',
+				{ selector: 'interface', format: ['PascalCase'], prefix: ['I'] },
+				// fields only: private methods stay plain camelCase
+				{
+					selector: ['classProperty', 'parameterProperty', 'accessor'],
+					modifiers: ['private'],
+					format: ['camelCase'],
+					leadingUnderscore: 'require'
+				},
+				// constants, private ones included: listing `private` makes this more specific than the field rule above
+				{ selector: 'classProperty', modifiers: ['static', 'readonly'], format: ['UPPER_CASE'] },
+				{ selector: 'classProperty', modifiers: ['private', 'static', 'readonly'], format: ['UPPER_CASE'] }
+			],
+			'@typescript-eslint/member-ordering': ['error', {
+				default: [
+					'public-static-field',
+					'protected-static-field',
+					'private-static-field',
+					'public-instance-field',
+					'protected-instance-field',
+					'private-instance-field',
+					'constructor',
+					['public-static-get', 'public-static-set'],
+					['protected-static-get', 'protected-static-set'],
+					['private-static-get', 'private-static-set'],
+					['public-instance-get', 'public-instance-set'],
+					['protected-instance-get', 'protected-instance-set'],
+					['private-instance-get', 'private-instance-set'],
+					'public-static-method',
+					'protected-static-method',
+					'private-static-method',
+					'public-instance-method',
+					'protected-instance-method',
+					'private-instance-method'
+				]
+			}],
+			'@typescript-eslint/explicit-function-return-type': ['error', {
+				allowExpressions: true,
+				allowTypedFunctionExpressions: true
+			}],
+
 			// --- Quality / bug-class rules ----------------------------------------
 
-			// Catch unawaited promises — a common defect in async tool loops.
+			// Parameters an interface requires but an implementation ignores are prefixed with `_`.
+			'@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+
+			// Catch unawaited promises. Mark deliberate fire-and-forget calls with `void`.
 			'@typescript-eslint/no-floating-promises': 'error'
 		}
 	},
@@ -83,8 +175,15 @@ export default tseslint.config(
 		files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
 		...tseslint.configs.disableTypeChecked
 	},
-	// Must come last: turns off any ESLint layout rules so they don't conflict
-	// with the formatter (dprint owns layout). Despite its name, this config is
-	// a generic list of formatting-related rule disables, not Prettier-specific.
-	eslintConfigPrettier
+	// Turns off any ESLint layout rules so they don't conflict with the formatter
+	// (dprint owns layout). Despite its name, this config is a generic list of
+	// formatting-related rule disables, not Prettier-specific. Only the block
+	// below may follow it.
+	eslintConfigPrettier,
+	// One argument per line: dprint keeps this layout but can't require it.
+	{
+		files: ['src/**/*.ts'],
+		plugins: { local: { rules: { 'arguments-per-line': argumentsPerLine } } },
+		rules: { 'local/arguments-per-line': 'error' }
+	}
 );

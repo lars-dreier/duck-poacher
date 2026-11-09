@@ -1,10 +1,15 @@
 import WebSearchResult from './WebSearchResult.ts';
 
+/**
+ * Parses a `d.js` response into `WebSearchResult`s. The results are an array literal embedded in a
+ * `DDG.pageLayout.load('d', [...])` call, found by its marker and a string-aware bracket scan. Entries without a
+ * title or URL are skipped; a missing marker or unbalanced array throws.
+ */
 export default class WebSearchParser {
-	private readonly RESULTS_MARKER: string = "DDG.pageLayout.load('d',";
+	private static readonly RESULTS_MARKER: string = "DDG.pageLayout.load('d',";
 
 	public parse(responseText: string): WebSearchResult[] {
-		const entries: DdgWebResult[] = this.extractResults(responseText);
+		const entries: IDdgWebResult[] = this.extractResults(responseText);
 		const searchResults: WebSearchResult[] = [];
 
 		for (const entry of entries) {
@@ -12,14 +17,20 @@ export default class WebSearchParser {
 				continue;
 			}
 
-			searchResults.push(new WebSearchResult(entry.t, entry.u, entry.a ?? ''));
+			searchResults.push(
+				new WebSearchResult(
+					entry.t,
+					entry.u,
+					entry.a ?? ''
+				)
+			);
 		}
 
 		return searchResults;
 	}
 
-	private extractResults(responseText: string): DdgWebResult[] {
-		const markerIndex: number = responseText.indexOf(this.RESULTS_MARKER);
+	private extractResults(responseText: string): IDdgWebResult[] {
+		const markerIndex: number = responseText.indexOf(WebSearchParser.RESULTS_MARKER);
 
 		if (markerIndex < 0) {
 			throw new Error('Unable to read results from DuckDuckGo response.');
@@ -29,29 +40,29 @@ export default class WebSearchParser {
 		const arrayEnd: number = this.findMatchingBracket(responseText, arrayStart);
 		const arrayLiteral: string = responseText.slice(arrayStart, arrayEnd + 1);
 
-		return JSON.parse(arrayLiteral) as DdgWebResult[];
+		return JSON.parse(arrayLiteral) as IDdgWebResult[];
 	}
 
 	private findMatchingBracket(text: string, openIndex: number): number {
 		let depth: number = 0;
-		let inString: boolean = false;
+		let isInString: boolean = false;
 
 		for (let i: number = openIndex; i < text.length; i++) {
 			const char: string = text[i] as string;
 
-			if (inString) {
+			if (isInString) {
 				if (char === '\\') {
 					i++;
 				}
 				else if (char === '"') {
-					inString = false;
+					isInString = false;
 				}
 
 				continue;
 			}
 
 			if (char === '"') {
-				inString = true;
+				isInString = true;
 			}
 			else if (char === '[') {
 				depth++;
@@ -69,7 +80,7 @@ export default class WebSearchParser {
 	}
 }
 
-interface DdgWebResult {
+interface IDdgWebResult {
 	t?: string;
 	u?: string;
 	a?: string;

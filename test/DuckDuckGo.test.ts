@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import DuckDuckGo from '../src/DuckDuckGo.ts';
+import type ImageSearchResult from '../src/image/ImageSearchResult.ts';
+import type WebSearchResult from '../src/web/WebSearchResult.ts';
 import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from './TestHelper.ts';
 
 describe('DuckDuckGo', () => {
@@ -10,7 +12,7 @@ describe('DuckDuckGo', () => {
 			const client = new DuckDuckGo();
 
 			// When an image search is performed with no token argument
-			const results = await client.imageSearch(TEST_QUERY);
+			const results: ImageSearchResult[] = await client.imageSearch(TEST_QUERY);
 
 			// Then it returns a non-empty list, each with valid thumbnail and image URLs
 			assert.ok(results.length > 0, 'results should not be empty');
@@ -27,7 +29,22 @@ describe('DuckDuckGo', () => {
 			const client = new DuckDuckGo();
 
 			// When a web search is performed with no token argument
-			const results = await client.webSearch(TEST_QUERY);
+			const results: WebSearchResult[] = await client.webSearch(TEST_QUERY);
+
+			// Then it returns a non-empty list, each with a title and a valid URL
+			assert.ok(results.length > 0, 'results should not be empty');
+			for (const result of results) {
+				assert.ok(result.title.length > 0, 'title should not be empty');
+				assertHttpUrl(result.url, 'url');
+			}
+		});
+
+		it('returns parsed web results with a safe search option', { timeout: NETWORK_TIMEOUT_MS }, async () => {
+			// Given the public facade
+			const client = new DuckDuckGo();
+
+			// When a web search is performed with strict safe search
+			const results: WebSearchResult[] = await client.webSearch(TEST_QUERY, { safeSearch: 'Strict' });
 
 			// Then it returns a non-empty list, each with a title and a valid URL
 			assert.ok(results.length > 0, 'results should not be empty');

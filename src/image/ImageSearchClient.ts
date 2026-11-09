@@ -1,64 +1,65 @@
-import * as http from 'http';
-import { AsyncResolvingHttpRequest, HttpMethod, HttpResponseReader } from 'node-http-toolkit';
-import ImageSearchParser from './ImageSearchParser.ts';
+import type * as http from 'node:http';
+import type DdgHttpClient from '../common/DdgHttpClient.ts';
+import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
+import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
+import type { DdgImageSearchOptions } from './DdgImageSearchOptions.ts';
+import type ImageSearchParser from './ImageSearchParser.ts';
 import type ImageSearchResult from './ImageSearchResult.ts';
 
-/** Time window the image must fall within. */
-export type DdgTime = 'Day' | 'Week' | 'Month';
-/** Image size bucket. */
-export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
-/** Color filter. */
-export type DdgColor = 'color' | 'Monochrome';
-/** Image kind. */
-export type DdgType = 'photo' | 'clipart' | 'gif' | 'transparent' | 'line';
-/** Aspect-ratio layout. */
-export type DdgLayout = 'Square' | 'Tall' | 'Wide';
-/** Usage-rights filter. */
-export type DdgLicense = 'Any' | 'Public';
-
-/** Filters for `DuckDuckGo.imageSearch`. All fields are optional. */
-export interface DdgSearchOptions {
-	/** Restrict to images from the last day, week, or month. */
-	time?: DdgTime;
-	/** Restrict to a size bucket. */
-	size?: DdgSize;
-	/** Restrict to color or monochrome. */
-	color?: DdgColor;
-	/** Restrict to an image kind (photo, clipart, gif, ...). */
-	type?: DdgType;
-	/** Restrict to an aspect-ratio layout. */
-	layout?: DdgLayout;
-	/** Restrict by usage rights. */
-	license?: DdgLicense;
-	/** Toggle safe search; defaults to off when omitted. */
-	safeSearch?: boolean;
-}
-
+/**
+ * Talks to DuckDuckGo's image endpoint: scrapes a per-query `vqd` token from the search page, then fetches `i.js`
+ * with the token, the positional `f` filter string and the safe search level.
+ */
 export default class ImageSearchClient {
 	// Order is important
-	private readonly OPTION_NAMES: string[] = ['time', 'size', 'color', 'type', 'layout', 'license'];
+	private static readonly OPTION_NAMES: Exclude<keyof DdgImageSearchOptions, keyof DdgSearchOptions>[] = [
+		'time',
+		'size',
+		'color',
+		'type',
+		'layout',
+		'license'
+	];
 
-	private readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
-		dnt: '1'
-	};
-
-	private readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
+	// Firefox on macOS, as captured from the browser. accept-encoding omits zstd because HttpResponseReader cannot
+	// decode it.
+	private static readonly BROWSER_HEADERS: http.OutgoingHttpHeaders = {
 		dnt: '1',
-		'accept-encoding': 'gzip, deflate, sdch, br',
-		'x-requested-with': 'XMLHttpRequest',
-		'accept-language': 'en-GB,en-US;q=0.8,en;q=0.6,ms;q=0.4',
-		'user-agent':
-			'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
-		accept: 'application/json, text/javascript, */*; q=0.01',
-		referer: 'https://duckduckgo.com/',
-		authority: 'duckduckgo.com'
+		'sec-gpc': '1',
+		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0',
+		'accept-language': 'en-US,en;q=0.9,de-DE;q=0.8',
+		'accept-encoding': 'gzip, deflate, br'
 	};
 
-	private readonly TOKEN_REGEX = /vqd=(?<vqd>[\d-]+)/;
+	// A top-level page load.
+	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
+		...ImageSearchClient.BROWSER_HEADERS,
+		accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+		'upgrade-insecure-requests': '1',
+		'sec-fetch-dest': 'document',
+		'sec-fetch-mode': 'navigate',
+		'sec-fetch-site': 'none',
+		'sec-fetch-user': '?1'
+	};
 
-	private readonly _parser = new ImageSearchParser();
+	// The page's fetch of i.js.
+	private static readonly SEARCH_HEADERS: http.OutgoingHttpHeaders = {
+		...ImageSearchClient.BROWSER_HEADERS,
+		accept: '*/*',
+		referer: 'https://duckduckgo.com/',
+		'sec-fetch-dest': 'empty',
+		'sec-fetch-mode': 'cors',
+		'sec-fetch-site': 'same-origin'
+	};
 
-	public async generateToken(query: string): Promise<string> {
+	private static readonly TOKEN_REGEX: RegExp = /vqd=(?<vqd>[\d-]+)/;
+
+	public constructor(
+		private readonly _parser: ImageSearchParser,
+		private readonly _httpClient: DdgHttpClient,
+	) {}
+
+	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
 		const params = new URLSearchParams();
 		params.append('q', query);
 		params.append('atb', 'v299-1');
@@ -67,8 +68,12 @@ export default class ImageSearchClient {
 		params.append('ia', 'images');
 
 		const url: string = `https://duckduckgo.com/?${params.toString()}`;
-		const data: string = await this.get(url, this.TOKEN_HEADERS);
-		const match: RegExpMatchArray | null = data.match(this.TOKEN_REGEX);
+		const data: string = await this._httpClient.get(
+			url,
+			ImageSearchClient.TOKEN_HEADERS,
+			options
+		);
+		const match: RegExpMatchArray | null = data.match(ImageSearchClient.TOKEN_REGEX);
 		const vqd: string | undefined = match?.groups?.['vqd'];
 
 		if (vqd == null) {
@@ -81,40 +86,41 @@ export default class ImageSearchClient {
 	public async imageSearch(
 		query: string,
 		token: string,
-		options?: DdgSearchOptions,
+		options?: DdgImageSearchOptions,
 	): Promise<ImageSearchResult[]> {
-		const searchOptions: DdgSearchOptions = options ?? {};
-		const url: string = this.createSearchUrl(query, token, searchOptions);
-		const responseText: string = await this.get(url, this.SEARCH_HEADERS);
+		const searchOptions: DdgImageSearchOptions = options ?? {};
+		const url: string = this.createSearchUrl(
+			query,
+			token,
+			searchOptions
+		);
+		const responseText: string = await this._httpClient.get(
+			url,
+			ImageSearchClient.SEARCH_HEADERS,
+			searchOptions
+		);
 
 		return this._parser.parse(responseText);
 	}
 
-	private async get(url: string, headers: http.OutgoingHttpHeaders): Promise<string> {
-		const request = new AsyncResolvingHttpRequest(url, HttpMethod.GET, headers);
-		const response: http.IncomingMessage = await request.resolve();
-		const reader = new HttpResponseReader();
-
-		return reader.readData(response);
-	}
-
-	private createSearchUrl(query: string, token: string, options: DdgSearchOptions): string {
+	private createSearchUrl(query: string, token: string, options: DdgImageSearchOptions): string {
 		const params = new URLSearchParams();
 		params.append('l', 'de-de');
 		params.append('o', 'json');
 		params.append('q', query);
 		params.append('vqd', token);
 		params.append('f', this.createImageSearchOptionsHeader(options));
-		params.append('p', options.safeSearch == true ? '1' : '-1');
+		// i.js also carries the level as its `p` parameter, alongside the `p` cookie GlobalSearchOptions sets.
+		params.append('p', new GlobalSearchOptions(options).safeSearchParam);
 
 		return `https://duckduckgo.com/i.js?${params.toString()}`;
 	}
 
-	private createImageSearchOptionsHeader(options: DdgSearchOptions): string {
+	private createImageSearchOptionsHeader(options: DdgImageSearchOptions): string {
 		const optionValues: string[] = [];
 
-		for (const optionName of this.OPTION_NAMES) {
-			const optionValue: string | undefined = options[optionName as keyof DdgSearchOptions]?.toString();
+		for (const optionName of ImageSearchClient.OPTION_NAMES) {
+			const optionValue: string | undefined = options[optionName];
 
 			if (optionValue == null) {
 				optionValues.push('');

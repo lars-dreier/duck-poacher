@@ -1,10 +1,10 @@
 ---
 title: "Code Style & Conventions"
-description: "Naming, OOP, enum, accessibility, formatting, and import conventions used throughout the source, and the ESLint/dprint rules that enforce them."
+description: "How code is written: naming, files and classes, class member order, access modifiers, fields and constructor parameters, dependency injection, types, const-object enums, imports, formatting and comments."
 category: "guide"
-tags: ["code-style", "conventions", "naming", "eslint", "dprint", "oop"]
-last_updated: "2026-06-21T10:00:32Z"
-related_docs: ["development.md", "architecture.md", "overview.md"]
+tags: ["code-style", "conventions", "naming", "oop", "member-order", "eslint", "dprint"]
+last_updated: "2026-11-09T21:41:39Z"
+related_docs: ["development.md", "architecture.md", "testing.md"]
 ---
 
 # Code Style & Conventions
@@ -12,210 +12,233 @@ related_docs: ["development.md", "architecture.md", "overview.md"]
 ## Table of Contents
 1. [Tooling Split: dprint vs ESLint](#tooling-split-dprint-vs-eslint)
 2. [Naming](#naming)
-3. [One Class Per File](#one-class-per-file)
-4. [Closed String Sets (no TS `enum`)](#closed-string-sets-no-ts-enum)
-5. [Explicit Access Modifiers](#explicit-access-modifiers)
-6. [Private Fields and Constructor Properties](#private-fields-and-constructor-properties)
-7. [Imports and `.ts` Extensions](#imports-and-ts-extensions)
-8. [Formatting Rules](#formatting-rules)
-9. [Comments](#comments)
+3. [Files and Classes](#files-and-classes)
+4. [Class Member Order](#class-member-order)
+5. [Access Modifiers](#access-modifiers)
+6. [Fields and Constructor Parameters](#fields-and-constructor-parameters)
+7. [Dependency Injection](#dependency-injection)
+8. [Types](#types)
+9. [const-object Enums (no TS `enum`)](#const-object-enums-no-ts-enum)
+10. [Imports](#imports)
+11. [Formatting](#formatting)
+12. [Comments](#comments)
 
 ---
 
+Rules marked **[lint]** or **[fmt]** fail `npm run code-style:lint` / `npm run code-style:format:check`; rules naming a compiler option
+(`verbatimModuleSyntax`, `noImplicitReturns`) fail `npm run typecheck`; everything else is checked in review.
+
 ## Tooling Split: dprint vs ESLint
 
-The project draws a hard line: **dprint owns layout, ESLint owns correctness and
-project conventions.** `eslint-config-prettier` is loaded last in
-`eslint.config.mjs` specifically to disable every ESLint layout rule so the two
-never fight. When you change code, run both (`npm run format` then `npm run lint`)
-— a passing lint does not imply correct formatting and vice versa.
+dprint owns layout, ESLint owns correctness and project conventions. `eslint-config-prettier` disables ESLint's layout
+rules in `eslint.config.mjs` so the two never fight. The one exception follows it: a local `arguments-per-line` rule for `src/`,
+because dprint keeps arguments one per line but can't require it.
+
+`npm run code-style:apply` runs ESLint's fixes, then dprint, in the order that rule needs. To verify without
+changing files, run `npm run code-style:lint` and `npm run code-style:format:check`: passing one says nothing about the
+other.
 
 ## Naming
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Folders | lowercase, hyphenated for multiword | `src/`, `image/`, `web/` |
-| Class files | PascalCase, match the class | `DuckDuckGo.ts`, `ImageSearchClient.ts`, `WebSearchClient.ts` |
-| Classes | PascalCase | `DuckDuckGo`, `ImageSearchClient`, `WebSearchParser`, `WebSearchResult` |
-| Methods / locals | camelCase | `generateToken`, `imageSearch`, `webSearch`, `createSearchUrl` |
-| Private fields | `_camelCase` | `_parser`, `_imageSearch`, `_webSearch` |
-| Constants (incl. `private readonly` config fields) | UPPER_SNAKE_CASE | `OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`, `SEARCH_URL_REGEX` |
+| Folders | lowercase; prefer a single word | `common/`, `image/`, `web/` |
+| Class files | PascalCase, match the class | `ImageSearchClient.ts` |
+| Type alias files | PascalCase, match the main type | `DdgSearchOptions.ts`, `DdgImageSearchOptions.ts` |
+| const-object enum files | PascalCase, match the enum | `SafeSearchParam.ts` → `SafeSearchParam` |
+| Test files | class name + `.test.ts` | `GlobalSearchOptions.test.ts` |
+| Classes | PascalCase | `DuckDuckGo`, `WebSearchParser` |
+| Interfaces | PascalCase, prefixed `I` **[lint]** | `IDdgResult`, `IDdgWebResult` |
+| Type aliases | PascalCase, no prefix | `DdgSafeSearch`, `DdgSearchOptions` |
+| Methods / locals / parameters | camelCase | `generateToken`, `searchUrl` |
+| Private fields, accessors and parameter properties | `_camelCase` **[lint]** | `_parser`, `_options`, `_safeSearch` |
+| Private methods | camelCase, no underscore | `createSearchUrl` |
+| Unused parameters after the last used one | `_` prefix **[lint]** | — |
+| Static readonly constants | UPPER_SNAKE_CASE **[lint]** | `SEARCH_HEADERS`, `TOKEN_REGEX` |
+| Boolean fields and locals | `is` / `has` / `can` prefix | `isInString` |
 
-**Acronyms are treated as ordinary words in identifiers — never all-caps.**
-Capitalize only the first letter and lowercase the rest: `Api` not `API`, `Ddg`
-not `DDG`, `Url` not `URL`, `Json` not `JSON`. So the option types are
-`DdgSearchOptions` / `DdgSize`, and a helper is `assertHttpUrl`. (The facade class
-is spelled `DuckDuckGo` in full — the brand is written out, not abbreviated, so it
-sidesteps the acronym rule entirely; the `Ddg` short form survives only in the
-option types.)
+**Acronyms are written as words:** `Ddg`, `Http`, `Url`, `Json`. Never `DDG`, `HTTP`, `URL`. This applies to
+identifiers only; prose, comments and string literals write acronyms normally ("the live DDG API"). Names from
+outside the project keep their upstream spelling: Node/web globals (`URLSearchParams`, `JSON`) and
+`node-http-toolkit`'s exports (`HttpMethod`, `AsyncResolvingHttpRequest`). UPPER_SNAKE_CASE constants keep the
+capitals (`SEARCH_URL_REGEX`).
 
-**Spell the protocol `Http`, never `HTTP`.** This is the most common case of the
-rule above: every class, file, and identifier uses `Http...` (e.g. `HttpError`,
-`HttpResponseReader`), never `HTTPError`. A firm project convention.
+The facade is spelled `DuckDuckGo` in full; the `Ddg` short form appears in the public option types, `DdgHttpClient`
+and DDG protocol shapes (`IDdgResult`).
 
-The rule applies to identifiers only. In prose, comments, and string literals,
-write acronyms normally (`HTTP GET`, "the live DDG API"). Names that come from
-outside the project keep their upstream spelling: Node/web globals
-(`URLSearchParams`, `JSON`, `XMLHttpRequest`) and `node-http-toolkit`'s exports
-(`HttpMethod`, `AsyncResolvingHttpRequest`) are used as published.
+**Public option shapes are type aliases, not interfaces.** `DdgSearchOptions` and `DdgImageSearchOptions` are
+`type`s so that they keep their published names without the `I` prefix; `DdgImageSearchOptions` extends the shared
+options by intersection (`DdgSearchOptions & { ... }`).
 
-## One Class Per File
+## Files and Classes
 
-Each file exports exactly **one** primary class as its default export, and the
-filename matches that class. Enforced by ESLint:
+Behavior lives in classes. Each class file default-exports exactly **one** class (one class declaration per file is
+**[lint]**) and is named after it.
 
-```js
-'max-classes-per-file': ['error', { ignoreExpressions: true, max: 1 }]
-```
+| Kind | Form | Example |
+|---|---|---|
+| State or behavior (unless a row below applies) | class | `ImageSearchClient`, `GlobalSearchOptions` |
+| Value objects | class with `public readonly` constructor parameter properties | `WebSearchResult` |
+| Type aliases and const-object enums | named export from a file named exactly like it; companion types may sit beside the main one | `DdgImageSearchOptions.ts` (`DdgSize`, `DdgLayout`, …) |
+| Internal protocol shapes | non-exported `I`-prefixed interfaces beside the one class that reads them | `IDdgWebResult` in `WebSearchParser.ts` |
 
-`ignoreExpressions` allows small inline/anonymous classes without tripping the
-rule. The public barrel `src/index.ts` is the one file with many exports — it
-only re-exports, it defines nothing. The parsers' internal shapes — `DdgResponse` /
-`DdgResult` in `ImageSearchParser`, `DdgWebResult` in `WebSearchParser` — co-exist
-with their parser in one file because they are `interface`s, not classes, so the
-rule does not count them. The `Ddg*` option types live alongside `ImageSearchClient`
-for the same reason — they are `type` aliases, not classes.
+In `src/`, a file's name always matches its class or type, casing included, and free-standing functions are not
+exported (`test/TestHelper.ts` holds the test fixtures and `assertHttpUrl`). The barrel `src/index.ts` is the exception
+to the naming rule: it only re-exports.
 
-## Closed String Sets (no TS `enum`)
+## Class Member Order
 
-TypeScript `enum` is **banned**. For a closed set of string values, this project
-uses a plain **string-literal union type** — no runtime object at all. The
-`Ddg*` option types are the canonical example:
+Members appear in this order **[lint]**:
 
-```ts
-export type DdgSize = 'Small' | 'Medium' | 'Large' | 'Wallpaper';
-export type DdgLayout = 'Square' | 'Tall' | 'Wide';
-```
+1. Fields (`private static readonly SEARCH_HEADERS`)
+2. Constructor
+3. Getters and setters, each setter directly after its getter (adjacency is checked in review)
+4. Methods
 
-When you genuinely need a **runtime value** for each member (e.g. to iterate or
-reference by name), use the const-object pattern instead, exporting a value and
-a same-named type — this is how `node-http-toolkit` exposes `HttpMethod`, which
-this package consumes:
+Within fields, getters/setters and methods, static members come before instance members, and each of those runs
+public, protected, private. Within that, keep related members together rather than sorting alphabetically.
 
 ```ts
-const HttpMethod = {
-  GET: 'GET',
-  POST: 'POST'
-  // ...
+/**
+ * Talks to DuckDuckGo's web endpoint: scrapes the signed `links.duckduckgo.com/d.js` URL from the search page, then
+ * fetches it with browser-like script headers. The safe search level is fixed into that URL when it is scraped.
+ */
+export default class WebSearchClient {
+	private static readonly TOKEN_HEADERS: http.OutgoingHttpHeaders = {
+		dnt: '1'
+	};
+
+	public constructor(
+		private readonly _parser: WebSearchParser,
+		private readonly _httpClient: DdgHttpClient,
+	) {}
+
+	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
+		// …
+	}
+
+	public async webSearch(query: string, searchUrl: string): Promise<WebSearchResult[]> {
+		// …
+	}
+}
+```
+
+## Access Modifiers
+
+Every class member declares `public`, `private` or `protected` explicitly, including the constructor **[lint]**.
+`protected` only where a subclass needs the seam.
+
+## Fields and Constructor Parameters
+
+- Private state is held in `private` `_`-prefixed fields. When callers need it, expose it through a `public` getter,
+  with a setter only where mutation is intended; immutable public data follows the `public readonly` rule below.
+- Fields are initialized at declaration with explicit types, `new` initializers included:
+  `private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser(), new DdgHttpClient());`.
+- Fixed configuration is a `private static readonly` constant (`SEARCH_HEADERS`, `TOKEN_REGEX`, `OPTION_NAMES`),
+  accessed through the class name: `WebSearchClient.SEARCH_HEADERS`.
+- Injected dependencies are constructor parameter properties: `private readonly _parser: WebSearchParser`. With more
+  than one, each goes on its own line.
+- Immutable public data uses `public readonly` constructor parameter properties instead of a field plus a getter
+  (`ImageSearchResult`, `WebSearchResult`).
+- Anything that never changes after construction is `readonly`.
+
+## Dependency Injection
+
+Constructor injection only, wired by hand.
+
+- Every dependency is a constructor parameter (`ImageSearchClient` receives its `ImageSearchParser` and `DdgHttpClient`).
+- Classes don't call `new` on their dependencies. `DuckDuckGo` is the composition root: it builds both clients,
+  their parsers and a `DdgHttpClient` for each, so the public `new DuckDuckGo()` stays argument-free. Tests build the
+  graph themselves (`new WebSearchClient(new WebSearchParser(), new DdgHttpClient())`).
+- Value objects and per-request helpers may be constructed anywhere: results, errors, `URLSearchParams`,
+  `GlobalSearchOptions`, and `node-http-toolkit`'s request/reader objects.
+- No module-level singletons or mutable module state.
+
+## Types
+
+- Explicit return types on every function and method **[lint]**; inline callbacks passed as arguments are exempt.
+- Explicit types on every variable declaration, destructuring included **[lint]**. Exempt:
+  - initializers that already name the type: `new X()`, `x as T` (const-object enums included) and arrow functions
+    with a declared return type. These need an annotation only when the variable's type differs;
+  - `for...of` / `for...in` loop variables (TypeScript allows no annotation there).
+
+  Annotations exist for the reader: write the domain name (`WebSearchResult[]`, `DdgImageSearchOptions`).
+- Inside a class, a helper function is a private method rather than an arrow assigned to a `const`.
+- `unknown` instead of `any` **[lint]**; narrow with type guards or a cast to a named protocol shape
+  (`JSON.parse(responseText) as IDdgResponse`).
+- A closed mapping over a union is a `switch` with one `case` per member and no `default`, so a new member fails
+  `npm run typecheck` under `noImplicitReturns` (`GlobalSearchOptions.createSafeSearchCookie`).
+
+## const-object Enums (no TS `enum`)
+
+TypeScript `enum` is **banned** **[lint]**. Use the const-object pattern, exporting a value and a same-named type:
+
+```ts
+const SafeSearchParam = {
+	Off: '-1',
+	Moderate: '1',
+	Strict: '1'
 } as const;
-type HttpMethod = typeof HttpMethod[keyof typeof HttpMethod];
-export { HttpMethod };
+type SafeSearchParam = typeof SafeSearchParam[keyof typeof SafeSearchParam];
+export { SafeSearchParam };
 ```
 
-Either way, no `enum`. Enforced by ESLint:
+A plain object at runtime (no enum IIFE, no reverse mappings), tree-shakeable, and indexable by a union-typed key
+(`SafeSearchParam[this._safeSearch]`). For a closed set with no runtime values, a string-literal
+union type is enough (`DdgSafeSearch`, `DdgSize`).
 
-```js
-'no-restricted-syntax': ['error', {
-  selector: 'TSEnumDeclaration',
-  message: 'Use the const-object enum pattern instead of `enum` (see code-style.md).'
-}]
-```
+## Imports
 
-This keeps enums tree-shakeable with no emitted enum object and no reverse
-mappings.
+- Relative imports include the **`.ts`** extension: `import WebSearchResult from './WebSearchResult.ts';`. This
+  works because `tsconfig.json` sets `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`; the tsdown
+  build emits `.mjs` / `.cjs` import paths.
+- Type-only imports use `import type` / `export type` (`verbatimModuleSyntax`).
+- Node built-ins use the `node:` prefix. In `src/` they are namespace imports
+  (`import type * as http from 'node:http';`); tests use `import assert from 'node:assert/strict';` and
+  `import { describe, it } from 'node:test';`.
+- Default export for classes; named exports for type aliases, const-object enums and companion types. The barrel
+  re-exports classes as `export { default as DuckDuckGo }` and types with `export type`.
 
-## Explicit Access Modifiers
+## Formatting
 
-Every class member declares `public`, `private`, or `protected` explicitly —
-including the constructor. Enforced:
-
-```js
-'@typescript-eslint/explicit-member-accessibility': ['error', { accessibility: 'explicit' }]
-```
-
-In `DuckDuckGo`, the owned implementation clients are `private readonly` fields
-(`_imageSearch`, `_webSearch`) and the entry points are `public` (`imageSearch`,
-`webSearch`). In `ImageSearchClient` / `WebSearchClient`, configuration constants
-are `private readonly` (`OPTION_NAMES`, `SEARCH_HEADERS`, `TOKEN_REGEX`,
-`SEARCH_URL_REGEX`), the entry points are `public` (`generateToken`, `imageSearch`,
-`webSearch`), and URL-building helpers are `private` (`createSearchUrl`,
-`createImageSearchOptionsHeader`). `protected` is available for subclass seams but
-is not currently used anywhere in `src/`.
-
-## Private Fields and Constructor Properties
-
-State is held in `private` `_`-prefixed fields. The facade's owned implementation
-client and the implementation's owned parser are the examples:
-
-```ts
-// DuckDuckGo owns the implementation clients
-private readonly _imageSearch = new ImageSearchClient();
-private readonly _webSearch = new WebSearchClient();
-
-// each client owns its parser
-private readonly _parser = new WebSearchParser();
-```
-
-Immutable public data uses **constructor parameter properties** rather than a
-field plus a getter — `ImageSearchResult` and `WebSearchResult` are the canonical
-cases:
-
-```ts
-public constructor(
-  public readonly title: string,
-  public readonly url: string,
-  public readonly description: string
-) {}
-```
-
-Getters/setters are not currently used in this codebase; reach for them only
-when you need computed access or controlled mutation. Fields are initialized at
-declaration with explicit types where inference would be unclear.
-
-## Imports and `.ts` Extensions
-
-Relative imports include the **`.ts`** extension:
-
-```ts
-import ImageSearchClient from './image/ImageSearchClient.ts';
-import type ImageSearchResult from './image/ImageSearchResult.ts';
-```
-
-(and from within the `image/` subdirectory, e.g. inside the parser: `import
-ImageSearchResult from './ImageSearchResult.ts';`). This works because
-`tsconfig.json` sets `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`
-— the compiler rewrites `.ts` to `.js` on emit, so no post-processor is needed and
-`tsc -w` works. Other conventions:
-
-- `verbatimModuleSyntax` is on, so use `import type` / `export type` (or inline
-  `{ type X }`) for type-only imports — e.g. `import type ImageSearchResult`
-  when a class is used only as a return type, and `src/index.ts`
-  re-exporting the `Ddg*` types with `export type`.
-- Node built-ins are imported as namespaces in `src/`: `import * as http from
-  'http'`. Test files use the `node:` prefix, e.g. `node:test`,
-  `node:assert/strict`.
-- Default export per file for classes; the barrel `src/index.ts` re-exports them
-  under their names (`export { default as DuckDuckGo }`) and re-exports the `Ddg*`
-  types with `export type`.
-
-## Formatting Rules
-
-From `dprint.json`:
+From `dprint.json` **[fmt]**:
 
 | Setting | Value |
 |---------|-------|
 | Indentation | **tabs**, width 2 |
 | Line width | 120 |
 | Quotes | prefer single |
-| Semicolons | prefer (required) |
+| Semicolons | prefer |
 | Trailing commas | never (except multi-line parameters: `onlyMultiLine`) |
-| `nextControlFlowPosition` | next line (`else`/`catch` on their own line) |
+| `nextControlFlowPosition` | next line (`}` and `else {` / `catch {` on separate lines) |
 | Line endings | LF |
 
-The "next line" control flow produces the project's distinctive `}` then
-`else {` / `catch {` on separate lines. dprint also formats JSON.
+In `src/`, calls and `new` expressions with three or more arguments put each argument on its own line **[lint]**, so
+that pairs like `params.append('q', query)` stay together. Specs are not linted for this.
 
 ## Comments
 
-The `src/` classes are **not** JSDoc-documented — the code carries no `/** ... */`
-class summaries. Comments are sparse and reserved for non-obvious decisions:
-`ImageSearchClient` has `// Order is important` above `OPTION_NAMES` (the option
-order is load-bearing for the `f`-parameter encoding,
-[architecture.md](architecture.md#image-search-and-option-encoding)), and
-`WebSearchClient` carries a few inline notes explaining the browser-header mimicry
-and why the signed `d.js` URL must be scraped rather than constructed.
+Every class carries a short `/** ... */` JSDoc summary, ideally one sentence, saying what it does. Add a salient
+behavior (what it scrapes, what it throws on) only when the signature and code don't show it. The public surface (`DuckDuckGo`'s methods, the exported option types and result
+properties) is documented member by member. Inline comments are reserved for non-obvious decisions:
+`// Order is important` above `OPTION_NAMES`, the browser-header mimicry in `WebSearchClient`, why the signed
+`d.js` URL is scraped rather than built.
 
-Test files and `TestHelper.ts` do use `/** ... */` to explain fixtures. Either
-way, `removeComments: true` in `tsconfig.json` strips comments from build output,
-so they exist only for source readers. If you add explanatory comments, follow
-the existing bar: explain *why*, not *what*.
+Class and method JSDoc is always multiline, even for one sentence; fields, constants, type aliases and their members,
+and constructor parameters may use the single-line form:
+
+```ts
+/**
+ * A single web search hit. Immutable.
+ */
+export default class WebSearchResult {
+	public constructor(
+		/** Title of the result page. */
+		public readonly title: string,
+		// …
+	) {}
+}
+```
+
+`removeComments: false` in `tsconfig.json` keeps the JSDoc in the generated `.d.mts` / `.d.cts`, where consumers'
+editors show it.
