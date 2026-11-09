@@ -1,5 +1,6 @@
 import type * as http from 'node:http';
 import type { DdgSafeSearch, DdgSearchOptions } from './DdgSearchOptions.ts';
+import { SafeSearchCookie } from './SafeSearchCookie.ts';
 import { SafeSearchParam } from './SafeSearchParam.ts';
 
 /**
@@ -26,11 +27,11 @@ export default class GlobalSearchOptions {
 	private createSafeSearchCookie(safeSearch: DdgSafeSearch): string | undefined {
 		switch (safeSearch) {
 			case 'Off':
-				return `p=${SafeSearchParam.Off}`;
+				return `p=${SafeSearchCookie.Off}`;
 			case 'Moderate':
 				return undefined;
 			case 'Strict':
-				return `p=${SafeSearchParam.Strict}`;
+				return `p=${SafeSearchCookie.Strict}`;
 		}
 	}
 }

@@ -70,8 +70,8 @@ describe('GlobalSearchOptions', () => {
 			// When the parameter is read
 			const param: string = options.safeSearchParam;
 
-			// Then it is DDG's "off" value
-			assert.equal(param, '-2');
+			// Then it is the URL's "off" value, which differs from the -2 cookie
+			assert.equal(param, '-1');
 		});
 
 		it("returns DDG's moderate value when safe search is Moderate", () => {
@@ -82,7 +82,7 @@ describe('GlobalSearchOptions', () => {
 			const param: string = options.safeSearchParam;
 
 			// Then it is DDG's "moderate" value
-			assert.equal(param, '-1');
+			assert.equal(param, '1');
 		});
 
 		it("returns DDG's strict value when safe search is Strict", () => {
@@ -104,7 +104,7 @@ describe('GlobalSearchOptions', () => {
 			const param: string = options.safeSearchParam;
 
 			// Then DDG's moderate default applies
-			assert.equal(param, '-1');
+			assert.equal(param, '1');
 		});
 	});
 });
