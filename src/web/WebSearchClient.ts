@@ -65,13 +65,9 @@ export default class WebSearchClient {
 		return searchUrl;
 	}
 
-	// A browser sends the cookie with the d.js request too, so mirror that.
-	public async webSearch(query: string, searchUrl: string, options?: DdgSearchOptions): Promise<WebSearchResult[]> {
-		const responseText: string = await this._httpClient.get(
-			searchUrl,
-			WebSearchClient.SEARCH_HEADERS,
-			options
-		);
+	// No cookie here: the level is already in the signed URL, and the browser sends none to links.duckduckgo.com.
+	public async webSearch(query: string, searchUrl: string): Promise<WebSearchResult[]> {
+		const responseText: string = await this._httpClient.get(searchUrl, WebSearchClient.SEARCH_HEADERS);
 
 		return this._parser.parse(responseText);
 	}

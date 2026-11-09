@@ -61,10 +61,6 @@ export default class DuckDuckGo {
 	public async webSearch(query: string, options?: DdgSearchOptions): Promise<WebSearchResult[]> {
 		const searchUrl: string = await this._webSearch.generateToken(query, options);
 
-		return this._webSearch.webSearch(
-			query,
-			searchUrl,
-			options
-		);
+		return this._webSearch.webSearch(query, searchUrl);
 	}
 }
