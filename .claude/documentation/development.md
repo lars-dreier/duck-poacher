@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-06-21T10:00:32Z"
+last_updated: "2026-11-09T21:41:39Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -23,8 +23,9 @@ related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 
 ## Prerequisites
 
-Node.js (build target is `node18`; `@types/node` is v25) and npm. Install with
-`npm install`.
+Node.js `^22.18.0 || >=24` (the `engines` range of `tsdown`, the strictest dev tool) and
+npm. `engines: ">=18"` in `package.json` and the `node18` build target apply to consumers
+only.
 
 ## The Build (tsdown)
 
@@ -34,7 +35,7 @@ Node.js (build target is `node18`; `@types/node` is v25) and npm. Install with
 - `format: ['esm', 'cjs']` — emits both module systems.
 - `unbundle: true` — preserves the source file structure in `dist/` instead of
   bundling into one file.
-- `dts: true` — generates `.d.ts` (and `.d.mts` / `.d.cts`).
+- `dts: true` — generates `.d.mts` / `.d.cts`.
 - `sourcemap: false`, `clean: true`, `target: 'node18'`, `outDir: 'dist'`.
 
 The `exports` map in `package.json` points `import` at `dist/index.mjs` (+
@@ -44,79 +45,45 @@ same build in watch mode.
 
 ## Type-Checking
 
-`npm run typecheck` runs `tsc --noEmit` against **`tsconfig.json`**, which only
-covers `src/` (`rootDir: ./src`). To type-check tests as well, ESLint and any
-manual check use **`tsconfig.test.json`** (extends the base, `rootDir: .`,
-includes `src` + `test`). See [testing.md](testing.md#type-checking-the-test-tree).
+`npm run typecheck` runs `tsc --noEmit` against **`tsconfig.json`**, which only covers
+`src/` (`rootDir: ./src`) and misses test files. Check those with
+`npx tsc --noEmit -p tsconfig.test.json`
+([testing.md](testing.md#type-checking-the-test-tree)).
 
-`tsconfig.json` is strict and then some: `strict`, `noUncheckedIndexedAccess`,
-`exactOptionalPropertyTypes`, `noImplicitOverride`, `noUnusedLocals`,
-`verbatimModuleSyntax`, `isolatedModules`, plus `noUncheckedSideEffectImports`
-and a forced `moduleDetection`. Source authored with `.ts` import extensions
-relies on `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`.
+`tsconfig.json` enables `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`,
+`noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`, `verbatimModuleSyntax`,
+`isolatedModules`, `noUncheckedSideEffectImports`, and `moduleDetection: force`.
 
 ## Lint and Format
 
-- `npm run lint` / `npm run lint:fix` — ESLint (flat config, `eslint.config.mjs`).
-  Type-aware rules via `typescript-eslint` using the project service; the test
-  tree resolves types from `tsconfig.test.json`. ESLint enforces the project's
-  architectural invariants (one class per file, explicit accessibility, no TS
-  `enum`, no floating promises in `src/`).
-- `npm run format` / `npm run format:check` — dprint (`dprint.json`). dprint owns
-  all layout; ESLint's layout rules are disabled via `eslint-config-prettier`.
-
-Run both. See [code-style.md](code-style.md) for the rules and the rationale
-behind the dprint/ESLint split.
+Commands and the dprint/ESLint split are in [code-style.md](code-style.md#tooling-split-dprint-vs-eslint).
+Type-aware ESLint rules use the `typescript-eslint` project service; `test/` resolves types from `tsconfig.test.json`.
 
 ## Export Validation
 
-`npm run check:exports` runs `@arethetypeswrong/cli` (`attw --pack .`) to verify
-the published package resolves types correctly under both ESM and CJS consumers.
-Run it after changing `package.json` `exports`, the build format, or the barrel.
+`npm run check:exports` runs `@arethetypeswrong/cli` (`attw --pack .`) to verify the
+published package resolves types correctly under both ESM and CJS consumers. It packs the
+existing `dist/` without building, so run `npm run build` first. Run it after changing
+`package.json` `exports`, the build format, or the barrel.
 
 ## Publishing
 
-`prepublishOnly` chains `npm test` → `typecheck` → `build` → `check:exports`, so
-`npm publish` will not proceed unless the live tests pass, types pass, the build
-succeeds, and the export map validates. The package is ESM-first
-(`"type": "module"`) but ships CJS too.
+`prepublishOnly` chains `npm test` → `typecheck` → `build` → `check:exports`, so any failure
+blocks `npm publish`. `npm test` includes live specs that need the network; a failure may
+mean DDG changed, not that the code broke
+([testing.md](testing.md#live-integration-tests)).
 
 ## Typical Loops
 
 | Goal | Commands |
 |------|----------|
-| Implement a feature | edit `src/` → `npm run test:watch` → `npm run lint` → `npm run format` |
-| Verify before commit | `npm run typecheck && npm test && npm run lint && npm run format:check` |
+| Implement a feature | edit `src/` → `npm run test:watch` → `npm run code-style:apply` |
+| Verify before commit | `npm run typecheck && npm test && npm run code-style:lint && npm run code-style:format:check` |
 | Validate packaging | `npm run build && npm run check:exports` |
 
 ## Common Pitfalls
 
-- **Forgetting `.ts` in imports.** Relative imports must include `.ts` (e.g.
-  `'./DuckDuckGo.ts'` from the barrel, `'./image/ImageSearchClient.ts'` from a
-  subdirectory, `'./ImageSearchResult.ts'` from a sibling). Omitting it fails
-  under this tsconfig.
-- **Using a TypeScript `enum`.** Banned by ESLint — use a string-literal union
-  (or the const-object pattern when you need a runtime value)
-  ([code-style.md](code-style.md#closed-string-sets-no-ts-enum)).
-- **Adding a second class to a file.** `max-classes-per-file` is an error; the
-  parser's internal `DdgResponse` / `DdgResult` shapes are `interface`s for
-  exactly this reason. Create a new PascalCase file (and export it from the barrel
-  if it is public) when you need another class.
-- **Floating promises in `src/`.** `no-floating-promises` is an error in source.
-  No current `src/` code fires-and-forgets; if you ever need to, `void` the call
-  deliberately. The rule is off only for `test/` (where `node:test`'s
-  `describe`/`it` return promises that must not be awaited).
-- **Editing `dist/`.** It is generated and gitignored; change `src/` and rebuild.
-- **Type-checking misses test files.** `tsc --noEmit` (base config) only sees
-  `src/`. Use `tsconfig.test.json` to check tests.
-- **Live tests need the network.** `npm test` hits the real DuckDuckGo API, so a
-  failure may mean DDG changed, not that your code broke. See
-  [testing.md](testing.md#live-integration-tests).
-- **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`.
-  The barrel exports only the public surface: `DuckDuckGo`, `ImageSearchResult`,
-  `WebSearchResult`, and the `Ddg*` types (`DdgColor`, `DdgLayout`, `DdgLicense`,
-  `DdgSearchOptions`, `DdgSize`, `DdgTime`, `DdgType`). The `ImageSearchClient`,
-  `WebSearchClient`, `ImageSearchParser`, `WebSearchParser`, and the parsers'
-  internal interfaces (`DdgResponse`, `DdgResult`, `DdgWebResult`) stay
-  unexported — callers get parsed results back from `DuckDuckGo.imageSearch` and
-  `DuckDuckGo.webSearch`.
+- **Forgetting `.ts` in imports.** Relative imports without it fail `tsc` under
+  `module: nodenext` ([code-style.md](code-style.md#imports)).
+- **Floating promises in `src/`.** `no-floating-promises` is an error; `void` a deliberate
+  fire-and-forget call. `test/` is exempt ([testing.md](testing.md#type-checking-the-test-tree)).

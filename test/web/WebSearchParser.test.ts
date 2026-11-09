@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import WebSearchParser from '../../src/web/WebSearchParser.ts';
+import type WebSearchResult from '../../src/web/WebSearchResult.ts';
 
 describe('WebSearchParser', () => {
 	describe('parse', () => {
@@ -18,7 +19,7 @@ describe('WebSearchParser', () => {
 				+ `]);DDG.duckbar.loadModule('related_searches', {});};`;
 
 			// When the response is parsed
-			const results = parser.parse(responseText);
+			const results: WebSearchResult[] = parser.parse(responseText);
 
 			// Then the trailing pagination entry is dropped and each result keeps DDG's t→title, u→url, a→description mapping
 			assert.equal(results.length, 2);
@@ -36,7 +37,7 @@ describe('WebSearchParser', () => {
 			const responseText: string = `window.execDeep = function() {DDG.pageLayout.load('d',[]);};`;
 
 			// When the response is parsed
-			const results = parser.parse(responseText);
+			const results: WebSearchResult[] = parser.parse(responseText);
 
 			// Then the parsed list is empty
 			assert.equal(results.length, 0);
