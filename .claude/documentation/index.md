@@ -2,11 +2,11 @@
 
 ## [architecture.md](architecture.md)
 
-How duck-poacher works inside: the `DuckDuckGo` composition root over `ImageSearchClient` and `WebSearchClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, bot-challenge detection, and DuckDuckGo protocol quirks.
+How duck-poacher works inside: the `DuckDuckGo` composition root over `ImageSearchClient`, `WebSearchClient` and `DdgHttpClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, bot-challenge detection, and DuckDuckGo protocol quirks.
 
 **Use when:**
 
-- Changing image or web search behavior, option encoding, safe search, or response parsing
+- Changing image or web search behavior, request headers, option encoding, safe search, or response parsing
 - Debugging DuckDuckGo protocol quirks (vqd token, signed d.js URL, bot challenges)
 - Deciding what a failure throws or where an error comes from
 
@@ -18,11 +18,11 @@ How code is written: naming, files and classes, member order, access modifiers, 
 
 - Writing new code or reviewing for consistency
 - Deciding naming, member order, constructor injection, or import style
-- Resolving an ESLint or dprint issue
+- Resolving an ESLint or dprint issue, or looking up the `code-style:*` commands
 
 ## [development.md](development.md)
 
-How to build, type-check, lint, format, and publish: required Node version, dual tsconfig setup, dual ESM/CJS build, and common pitfalls.
+How to build, type-check and publish: required Node version, dual tsconfig setup, dual ESM/CJS build, the typical command loops, and common pitfalls.
 
 **Use when:**
 
@@ -31,7 +31,7 @@ How to build, type-check, lint, format, and publish: required Node version, dual
 
 ## [overview.md](overview.md)
 
-What duck-poacher is: its stack, install steps, the public API surface (`DuckDuckGo`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
+What duck-poacher is: its stack, the public API surface (`DuckDuckGo`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
 
 **Use when:**
 

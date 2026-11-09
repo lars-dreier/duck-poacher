@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "How code is written: naming, files and classes, class member order, access modifiers, fields and constructor parameters, dependency injection, types, const-object enums, imports, formatting and comments."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "oop", "member-order", "eslint", "dprint"]
-last_updated: "2026-11-08T21:10:46Z"
+last_updated: "2026-11-09T21:41:39Z"
 related_docs: ["development.md", "architecture.md", "testing.md"]
 ---
 
@@ -51,12 +51,11 @@ other.
 | Interfaces | PascalCase, prefixed `I` **[lint]** | `IDdgResult`, `IDdgWebResult` |
 | Type aliases | PascalCase, no prefix | `DdgSafeSearch`, `DdgSearchOptions` |
 | Methods / locals / parameters | camelCase | `generateToken`, `searchUrl` |
-| Private fields (incl. parameter properties) | `_camelCase` **[lint]** | `_parser`, `_options` |
+| Private fields, accessors and parameter properties | `_camelCase` **[lint]** | `_parser`, `_options`, `_safeSearch` |
 | Private methods | camelCase, no underscore | `createSearchUrl` |
 | Unused parameters after the last used one | `_` prefix **[lint]** | — |
 | Static readonly constants | UPPER_SNAKE_CASE **[lint]** | `SEARCH_HEADERS`, `TOKEN_REGEX` |
 | Boolean fields and locals | `is` / `has` / `can` prefix | `isInString` |
-| Stateless helper classes | suffix `Util` | — |
 
 **Acronyms are written as words:** `Ddg`, `Http`, `Url`, `Json`. Never `DDG`, `HTTP`, `URL`. This applies to
 identifiers only; prose, comments and string literals write acronyms normally ("the live DDG API"). Names from
@@ -64,8 +63,8 @@ outside the project keep their upstream spelling: Node/web globals (`URLSearchPa
 `node-http-toolkit`'s exports (`HttpMethod`, `AsyncResolvingHttpRequest`). UPPER_SNAKE_CASE constants keep the
 capitals (`SEARCH_URL_REGEX`).
 
-The facade is spelled `DuckDuckGo` in full; the `Ddg` short form appears in the public option types and in DDG
-protocol shapes (`IDdgResult`).
+The facade is spelled `DuckDuckGo` in full; the `Ddg` short form appears in the public option types, `DdgHttpClient`
+and DDG protocol shapes (`IDdgResult`).
 
 **Public option shapes are type aliases, not interfaces.** `DdgSearchOptions` and `DdgImageSearchOptions` are
 `type`s so that they keep their published names without the `I` prefix; `DdgImageSearchOptions` extends the shared
@@ -80,7 +79,6 @@ Behavior lives in classes. Each class file default-exports exactly **one** class
 |---|---|---|
 | State or behavior (unless a row below applies) | class | `ImageSearchClient`, `GlobalSearchOptions` |
 | Value objects | class with `public readonly` constructor parameter properties | `WebSearchResult` |
-| Stateless helpers | class with static methods, suffix `Util` | — |
 | Type aliases and const-object enums | named export from a file named exactly like it; companion types may sit beside the main one | `DdgImageSearchOptions.ts` (`DdgSize`, `DdgLayout`, …) |
 | Internal protocol shapes | non-exported `I`-prefixed interfaces beside the one class that reads them | `IDdgWebResult` in `WebSearchParser.ts` |
 
@@ -110,13 +108,16 @@ export default class WebSearchClient {
 		dnt: '1'
 	};
 
-	public constructor(private readonly _parser: WebSearchParser) {}
+	public constructor(
+		private readonly _parser: WebSearchParser,
+		private readonly _httpClient: DdgHttpClient,
+	) {}
 
 	public async generateToken(query: string, options?: DdgSearchOptions): Promise<string> {
 		// …
 	}
 
-	private async get(url: string, headers: http.OutgoingHttpHeaders): Promise<string> {
+	public async webSearch(query: string, searchUrl: string): Promise<WebSearchResult[]> {
 		// …
 	}
 }
@@ -132,7 +133,7 @@ Every class member declares `public`, `private` or `protected` explicitly, inclu
 - Private state is held in `private` `_`-prefixed fields. When callers need it, expose it through a `public` getter,
   with a setter only where mutation is intended; immutable public data follows the `public readonly` rule below.
 - Fields are initialized at declaration with explicit types, `new` initializers included:
-  `private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser());`.
+  `private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser(), new DdgHttpClient());`.
 - Fixed configuration is a `private static readonly` constant (`SEARCH_HEADERS`, `TOKEN_REGEX`, `OPTION_NAMES`),
   accessed through the class name: `WebSearchClient.SEARCH_HEADERS`.
 - Injected dependencies are constructor parameter properties: `private readonly _parser: WebSearchParser`. With more
@@ -143,12 +144,12 @@ Every class member declares `public`, `private` or `protected` explicitly, inclu
 
 ## Dependency Injection
 
-Constructor injection only, wired by hand (no DI container, no decorators).
+Constructor injection only, wired by hand.
 
-- Every dependency is a constructor parameter (`ImageSearchClient` receives its `ImageSearchParser`).
-- Classes don't call `new` on their dependencies. `DuckDuckGo` is the composition root: it builds both clients
-  and their parsers, so the public `new DuckDuckGo()` stays argument-free. Tests build the graph themselves
-  (`new WebSearchClient(new WebSearchParser())`).
+- Every dependency is a constructor parameter (`ImageSearchClient` receives its `ImageSearchParser` and `DdgHttpClient`).
+- Classes don't call `new` on their dependencies. `DuckDuckGo` is the composition root: it builds both clients,
+  their parsers and a `DdgHttpClient` for each, so the public `new DuckDuckGo()` stays argument-free. Tests build the
+  graph themselves (`new WebSearchClient(new WebSearchParser(), new DdgHttpClient())`).
 - Value objects and per-request helpers may be constructed anywhere: results, errors, `URLSearchParams`,
   `GlobalSearchOptions`, and `node-http-toolkit`'s request/reader objects.
 - No module-level singletons or mutable module state.
@@ -174,8 +175,8 @@ TypeScript `enum` is **banned** **[lint]**. Use the const-object pattern, export
 
 ```ts
 const SafeSearchParam = {
-	Off: '-2',
-	Moderate: '-1',
+	Off: '-1',
+	Moderate: '1',
 	Strict: '1'
 } as const;
 type SafeSearchParam = typeof SafeSearchParam[keyof typeof SafeSearchParam];
@@ -183,12 +184,12 @@ export { SafeSearchParam };
 ```
 
 A plain object at runtime (no enum IIFE, no reverse mappings), tree-shakeable, and indexable by a union-typed key
-(`SafeSearchParam[options.safeSearch ?? 'Moderate']`). For a closed set with no runtime values, a string-literal
+(`SafeSearchParam[this._safeSearch]`). For a closed set with no runtime values, a string-literal
 union type is enough (`DdgSafeSearch`, `DdgSize`).
 
 ## Imports
 
-- Relative imports include the **`.ts`** extension: `import WebSearchParser from './WebSearchParser.ts';`. This
+- Relative imports include the **`.ts`** extension: `import WebSearchResult from './WebSearchResult.ts';`. This
   works because `tsconfig.json` sets `allowImportingTsExtensions` + `rewriteRelativeImportExtensions`; the tsdown
   build emits `.mjs` / `.cjs` import paths.
 - Type-only imports use `import type` / `export type` (`verbatimModuleSyntax`).
@@ -240,4 +241,4 @@ export default class WebSearchResult {
 ```
 
 `removeComments: false` in `tsconfig.json` keeps the JSDoc in the generated `.d.mts` / `.d.cts`, where consumers'
-editors show it. Setting it to `true` would strip it.
+editors show it.

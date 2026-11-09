@@ -3,7 +3,7 @@ title: "Development Workflow"
 description: "How to build, type-check, lint, format, and publish the package, including the dual tsconfig setup, the dual ESM/CJS build, and common pitfalls."
 category: "guide"
 tags: ["development", "build", "tsdown", "typecheck", "publishing", "pitfalls"]
-last_updated: "2026-11-08T21:10:46Z"
+last_updated: "2026-11-09T21:41:39Z"
 related_docs: ["overview.md", "architecture.md", "code-style.md", "testing.md"]
 ---
 
@@ -56,12 +56,8 @@ same build in watch mode.
 
 ## Lint and Format
 
-- `npm run lint` / `npm run lint:fix` — ESLint (flat config, `eslint.config.mjs`).
-  Type-aware rules via `typescript-eslint` using the project service; `test/` resolves
-  types from `tsconfig.test.json`.
-- `npm run format` / `npm run format:check` — dprint (`dprint.json`).
-
-See [code-style.md](code-style.md) for the rules and the dprint/ESLint split.
+Commands and the dprint/ESLint split are in [code-style.md](code-style.md#tooling-split-dprint-vs-eslint).
+Type-aware ESLint rules use the `typescript-eslint` project service; `test/` resolves types from `tsconfig.test.json`.
 
 ## Export Validation
 
@@ -81,19 +77,13 @@ mean DDG changed, not that the code broke
 
 | Goal | Commands |
 |------|----------|
-| Implement a feature | edit `src/` → `npm run test:watch` → `npm run lint` → `npm run format` |
-| Verify before commit | `npm run typecheck && npm test && npm run lint && npm run format:check` |
+| Implement a feature | edit `src/` → `npm run test:watch` → `npm run code-style:apply` |
+| Verify before commit | `npm run typecheck && npm test && npm run code-style:lint && npm run code-style:format:check` |
 | Validate packaging | `npm run build && npm run check:exports` |
 
 ## Common Pitfalls
 
 - **Forgetting `.ts` in imports.** Relative imports without it fail `tsc` under
   `module: nodenext` ([code-style.md](code-style.md#imports)).
-- **Using a TypeScript `enum`.** Banned by ESLint; use the const-object pattern or a
-  string-literal union ([code-style.md](code-style.md#const-object-enums-no-ts-enum)).
-- **Adding a second class to a file.** `max-classes-per-file` is an error; create a new
-  file ([code-style.md](code-style.md#files-and-classes)).
 - **Floating promises in `src/`.** `no-floating-promises` is an error; `void` a deliberate
   fire-and-forget call. `test/` is exempt ([testing.md](testing.md#type-checking-the-test-tree)).
-- **Exporting internal helpers.** Keep internal plumbing out of `src/index.ts`; the public
-  surface is listed in [overview.md](overview.md#public-api).

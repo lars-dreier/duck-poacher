@@ -3,7 +3,7 @@ title: "Testing Guide"
 description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API (image and web search), offline parser, value-object, error and options specs, shared fixtures, and conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-11-08T21:10:46Z"
+last_updated: "2026-11-09T21:41:39Z"
 related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
 ---
 
@@ -24,11 +24,6 @@ related_docs: ["development.md", "architecture.md", "code-style.md", "overview.m
 
 Tests use the built-in `node:test` runner with `node:assert/strict`, executed through tsx so
 TypeScript runs without a separate compile step.
-
-```ts
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-```
 
 ## Running Tests
 
@@ -52,7 +47,7 @@ itself, not that it still works against a live, drifting target.
   investigate the real response before "fixing" the test. What drifts is in
   [architecture.md](architecture.md#duckduckgo-protocol-quirks).
 - **Bot challenges fail the run.** No spec skips or tolerates one: `BotChallengeError` rejects
-  the live image specs ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
+  the live `imageSearch` specs ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
 
 ## Test Layout
 
@@ -64,7 +59,7 @@ test/
   DuckDuckGo.test.ts               live: public facade, imageSearch and webSearch
   common/
     BotChallengeError.test.ts      offline: error name, reason, message
-    GlobalSearchOptions.test.ts    offline: safe search cookie headers
+    GlobalSearchOptions.test.ts    offline: safe search cookie headers, safeSearchParam values
   image/
     ImageSearchClient.test.ts      live: image token generation + search
     ImageSearchParser.test.ts      offline: JSON string to ImageSearchResult, bot challenges
@@ -90,14 +85,14 @@ string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans fo
 
 ## Conventions
 
-- **Structure:** `describe` per class, nested `describe` per method (or `constructor`), `it`
-  per behavior.
+- **Structure:** `describe` per class, nested `describe` per member (method, getter or
+  `constructor`), `it` per behavior.
 - **Given/When/Then:** each `it` body carries `// Given`, `// When`, `// Then` comments
   narrating the scenario. Where `assert.throws` both acts and asserts, `// When` and
   `// Then` sit together above it.
-- **Construction:** inject the parser through the client constructor, e.g.
-  `new ImageSearchClient(new ImageSearchParser())`; the facade is `new DuckDuckGo()`
-  ([code-style.md](code-style.md#dependency-injection)).
+- **Construction:** inject the parser and a `DdgHttpClient` through the client constructor, e.g.
+  `new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient())`; the facade is
+  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)).
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options argument on
   every live spec; omit it on offline specs. A spec that searches mints a token first, so two
   sequential requests share that budget.
