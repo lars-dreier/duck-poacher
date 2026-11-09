@@ -74,7 +74,11 @@ export default class ImageSearchClient {
 		options?: DdgImageSearchOptions,
 	): Promise<ImageSearchResult[]> {
 		const searchOptions: DdgImageSearchOptions = options ?? {};
-		const url: string = this.createSearchUrl(query, token, searchOptions);
+		const url: string = this.createSearchUrl(
+			query,
+			token,
+			searchOptions
+		);
 		const responseText: string = await this._httpClient.get(
 			url,
 			ImageSearchClient.SEARCH_HEADERS,

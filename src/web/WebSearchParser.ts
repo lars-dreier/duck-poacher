@@ -17,7 +17,13 @@ export default class WebSearchParser {
 				continue;
 			}
 
-			searchResults.push(new WebSearchResult(entry.t, entry.u, entry.a ?? ''));
+			searchResults.push(
+				new WebSearchResult(
+					entry.t,
+					entry.u,
+					entry.a ?? ''
+				)
+			);
 		}
 
 		return searchResults;

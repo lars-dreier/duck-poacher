@@ -12,6 +12,39 @@ import eslintConfigPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+// Three or more arguments go one per line. Fewer are left alone so pairs like `params.append('q', query)` stay
+// readable, which no core rule allows. Breaking before the first argument is what makes dprint keep the layout.
+const argumentsPerLine = {
+	meta: {
+		type: 'layout',
+		fixable: 'whitespace',
+		schema: [],
+		messages: { split: 'Put each argument on its own line when a call has three or more (see code-style.md).' }
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const check = (node) => {
+			if (node.arguments.length < 3) {
+				return;
+			}
+
+			for (const argument of node.arguments) {
+				const firstToken = sourceCode.getFirstToken(argument);
+
+				if (sourceCode.getTokenBefore(firstToken).loc.end.line === firstToken.loc.start.line) {
+					context.report({
+						node: argument,
+						messageId: 'split',
+						fix: (fixer) => fixer.insertTextBefore(firstToken, '\n')
+					});
+				}
+			}
+		};
+
+		return { CallExpression: check, NewExpression: check };
+	}
+};
+
 export default tseslint.config(
 	// Files ESLint should never look at.
 	{
@@ -142,8 +175,15 @@ export default tseslint.config(
 		files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
 		...tseslint.configs.disableTypeChecked
 	},
-	// Must come last: turns off any ESLint layout rules so they don't conflict
-	// with the formatter (dprint owns layout). Despite its name, this config is
-	// a generic list of formatting-related rule disables, not Prettier-specific.
-	eslintConfigPrettier
+	// Turns off any ESLint layout rules so they don't conflict with the formatter
+	// (dprint owns layout). Despite its name, this config is a generic list of
+	// formatting-related rule disables, not Prettier-specific. Only the block
+	// below may follow it.
+	eslintConfigPrettier,
+	// One argument per line: dprint keeps this layout but can't require it.
+	{
+		files: ['src/**/*.ts'],
+		plugins: { local: { rules: { 'arguments-per-line': argumentsPerLine } } },
+		rules: { 'local/arguments-per-line': 'error' }
+	}
 );

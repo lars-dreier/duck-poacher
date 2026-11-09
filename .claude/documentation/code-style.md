@@ -25,14 +25,18 @@ related_docs: ["development.md", "architecture.md", "testing.md"]
 
 ---
 
-Rules marked **[lint]** or **[fmt]** fail `npm run lint` / `npm run format:check`; rules naming a compiler option
+Rules marked **[lint]** or **[fmt]** fail `npm run code-style:lint` / `npm run code-style:format:check`; rules naming a compiler option
 (`verbatimModuleSyntax`, `noImplicitReturns`) fail `npm run typecheck`; everything else is checked in review.
 
 ## Tooling Split: dprint vs ESLint
 
-dprint owns layout, ESLint owns correctness and project conventions. `eslint-config-prettier` is loaded last in
-`eslint.config.mjs` to disable every ESLint layout rule so the two never fight. Run both (`npm run format`, then
-`npm run lint`): passing one says nothing about the other.
+dprint owns layout, ESLint owns correctness and project conventions. `eslint-config-prettier` disables ESLint's layout
+rules in `eslint.config.mjs` so the two never fight. The one exception follows it: a local `arguments-per-line` rule for `src/`,
+because dprint keeps arguments one per line but can't require it.
+
+`npm run code-style:apply` runs ESLint's fixes, then dprint, in the order that rule needs. To verify without
+changing files, run `npm run code-style:lint` and `npm run code-style:format:check`: passing one says nothing about the
+other.
 
 ## Naming
 
@@ -208,8 +212,8 @@ From `dprint.json` **[fmt]**:
 | `nextControlFlowPosition` | next line (`}` and `else {` / `catch {` on separate lines) |
 | Line endings | LF |
 
-Calls and `new` expressions with more than one argument put each argument on its own line. This is checked in review,
-and older code has not been migrated yet.
+In `src/`, calls and `new` expressions with three or more arguments put each argument on its own line **[lint]**, so
+that pairs like `params.append('q', query)` stay together. Specs are not linted for this.
 
 ## Comments
 

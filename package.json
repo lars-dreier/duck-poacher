@@ -32,10 +32,11 @@
 		"test": "tsx --test \"test/**/*.test.ts\"",
 		"test:coverage": "tsx --test --experimental-test-coverage \"test/**/*.test.ts\"",
 		"test:watch": "tsx --test --watch \"test/**/*.test.ts\"",
-		"lint": "eslint .",
-		"lint:fix": "eslint . --fix",
-		"format": "dprint fmt",
-		"format:check": "dprint check"
+		"code-style:apply": "npm run code-style:lint:fix && npm run code-style:format",
+		"code-style:lint": "eslint .",
+		"code-style:lint:fix": "eslint . --fix",
+		"code-style:format": "dprint fmt",
+		"code-style:format:check": "dprint check"
 	},
 	"keywords": [
 		"duckduckgo",

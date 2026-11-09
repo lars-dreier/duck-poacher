@@ -10,10 +10,7 @@ describe('ImageSearchClient', () => {
 	describe('generateToken', () => {
 		it('scrapes a vqd token from the live DuckDuckGo response', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given the live image search client
-			const client = new ImageSearchClient(
-				new ImageSearchParser(),
-				new DdgHttpClient()
-			);
+			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
 
 			// When a token is generated for a query
 			const token: string = await client.generateToken(TEST_QUERY);
@@ -27,10 +24,7 @@ describe('ImageSearchClient', () => {
 	describe('imageSearch', () => {
 		it('returns parsed image results with valid URLs', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given a valid token for the query
-			const client = new ImageSearchClient(
-				new ImageSearchParser(),
-				new DdgHttpClient()
-			);
+			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
 			const token: string = await client.generateToken(TEST_QUERY);
 
 			// When an image search is performed
@@ -46,10 +40,7 @@ describe('ImageSearchClient', () => {
 
 		it('applies search options without error', { timeout: NETWORK_TIMEOUT_MS }, async () => {
 			// Given a valid token and a set of search options
-			const client = new ImageSearchClient(
-				new ImageSearchParser(),
-				new DdgHttpClient()
-			);
+			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
 			const token: string = await client.generateToken(TEST_QUERY);
 
 			// When searching with size, layout and safe-search constraints
@@ -66,10 +57,7 @@ describe('ImageSearchClient', () => {
 		for (const safeSearch of ['Off', 'Moderate', 'Strict'] as const) {
 			it(`returns parsed results with safe search ${safeSearch}`, { timeout: NETWORK_TIMEOUT_MS }, async () => {
 				// Given a token minted with the safe search level
-				const client = new ImageSearchClient(
-					new ImageSearchParser(),
-					new DdgHttpClient()
-				);
+				const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
 				const token: string = await client.generateToken(TEST_QUERY, { safeSearch });
 
 				// When searching with the same level

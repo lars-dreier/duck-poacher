@@ -20,10 +20,7 @@ export default class DuckDuckGo {
 		new ImageSearchParser(),
 		new DdgHttpClient()
 	);
-	private readonly _webSearch: WebSearchClient = new WebSearchClient(
-		new WebSearchParser(),
-		new DdgHttpClient()
-	);
+	private readonly _webSearch: WebSearchClient = new WebSearchClient(new WebSearchParser(), new DdgHttpClient());
 
 	/**
 	 * Runs an image search.
@@ -42,7 +39,11 @@ export default class DuckDuckGo {
 	public async imageSearch(query: string, options?: DdgImageSearchOptions): Promise<ImageSearchResult[]> {
 		const token: string = await this._imageSearch.generateToken(query, options);
 
-		return this._imageSearch.imageSearch(query, token, options);
+		return this._imageSearch.imageSearch(
+			query,
+			token,
+			options
+		);
 	}
 
 	/**
@@ -60,6 +61,10 @@ export default class DuckDuckGo {
 	public async webSearch(query: string, options?: DdgSearchOptions): Promise<WebSearchResult[]> {
 		const searchUrl: string = await this._webSearch.generateToken(query, options);
 
-		return this._webSearch.webSearch(query, searchUrl, options);
+		return this._webSearch.webSearch(
+			query,
+			searchUrl,
+			options
+		);
 	}
 }
