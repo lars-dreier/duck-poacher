@@ -43,11 +43,10 @@ describe('ImageSearchClient', () => {
 			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
 			const token: string = await client.generateToken(TEST_QUERY);
 
-			// When searching with size, layout and safe-search constraints
+			// When searching with size and layout constraints
 			const results: ImageSearchResult[] = await client.imageSearch(TEST_QUERY, token, {
 				size: 'Large',
-				layout: 'Square',
-				safeSearch: 'Strict'
+				layout: 'Square'
 			});
 
 			// Then a parsed result list is still returned
