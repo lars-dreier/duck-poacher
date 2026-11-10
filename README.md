@@ -77,6 +77,36 @@ omitted, DuckDuckGo's own default (`'Moderate'`) applies.
 The client will throw errors in case parsing fails at any stage (Token generation, search results).
 HTTP errors are also propagated.
 
+### Bot Challenges and Blocking
+
+DuckDuckGo protects its image search with a browser-side challenge that this library does not answer. DDG tolerates
+that for a burst of requests, then blocks image search for your IP for a while. Web search has not been affected so
+far. Light use works fine; dozens of image searches in quick succession will get blocked.
+
+When DDG blocks an image search, `imageSearch` throws a `BotChallengeError`. Its `reason` is DDG's category for the
+challenge (e.g. `'botnet'`), `'unknown'` if DDG sent none, or `'forbidden'` if DDG rejected the request with HTTP 403.
+In the 403 case the original `HttpError` is available as `cause`.
+
+```ts
+import { DuckDuckGo, type ImageSearchResult } from 'duck-poacher';
+
+const ddg = new DuckDuckGo();
+
+try {
+  const results: ImageSearchResult[] = await ddg.imageSearch('ducks with human feet');
+}
+catch (error) {
+  // Compare by name: `instanceof` fails if your app loads both the ESM and CJS builds.
+  if (error instanceof Error && error.name === 'BotChallengeError') {
+    // Blocked: back off for a while before searching again.
+  }
+  throw error;
+}
+```
+
+A block is usually temporary. Don't retry in a tight loop, as that tends to keep it in place. Wait, and spread out
+your searches. If you need search results at volume, use an official search API instead of a scraper.
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and commands.

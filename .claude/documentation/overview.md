@@ -55,7 +55,7 @@ Everything is re-exported from the `src/index.ts` barrel. Nothing else is public
 | Export | Kind | Purpose |
 |--------|------|---------|
 | `DuckDuckGo` | class | The client: `imageSearch(query, options?: DdgImageSearchOptions)` and `webSearch(query, options?: DdgSearchOptions)`, token managed internally |
-| `BotChallengeError` | class | `Error` thrown by `imageSearch` when DDG answers with a bot challenge; carries `reason` (DDG's category, or `unknown`) |
+| `BotChallengeError` | class | `Error` thrown by `imageSearch` when DDG answers with a bot challenge or an HTTP 403; carries `reason` (DDG's category, `unknown`, or `forbidden` for a 403) |
 | `ImageSearchResult` | class | Value object: `{ thumbnailUrl, imageUrl }` |
 | `WebSearchResult` | class | Value object: `{ title, url, description }` |
 | `DdgSearchOptions` | type | Options shared by every search; the `webSearch` options |

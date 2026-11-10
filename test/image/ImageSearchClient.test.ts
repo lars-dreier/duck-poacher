@@ -1,71 +1,54 @@
+import { HttpError } from 'node-http-toolkit';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import BotChallengeError from '../../src/common/BotChallengeError.ts';
 import DdgHttpClient from '../../src/common/DdgHttpClient.ts';
 import ImageSearchClient from '../../src/image/ImageSearchClient.ts';
 import ImageSearchParser from '../../src/image/ImageSearchParser.ts';
-import type ImageSearchResult from '../../src/image/ImageSearchResult.ts';
-import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from '../TestHelper.ts';
+
+/**
+ * Stands in for the network: every request fails with the given error.
+ */
+class FailingHttpClient extends DdgHttpClient {
+	public constructor(private readonly _error: Error) {
+		super();
+	}
+
+	public override get(): Promise<string> {
+		return Promise.reject(this._error);
+	}
+}
 
 describe('ImageSearchClient', () => {
-	describe('generateToken', () => {
-		it('scrapes a vqd token from the live DuckDuckGo response', { timeout: NETWORK_TIMEOUT_MS }, async () => {
-			// Given the live image search client
-			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
-
-			// When a token is generated for a query
-			const token: string = await client.generateToken(TEST_QUERY);
-
-			// Then it is a non-empty vqd token made of digits and dashes
-			assert.ok(token.length > 0, 'token should not be empty');
-			assert.match(token, /^[\d-]+$/);
-		});
-	});
-
 	describe('imageSearch', () => {
-		it('returns parsed image results with valid URLs', { timeout: NETWORK_TIMEOUT_MS }, async () => {
-			// Given a valid token for the query
-			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
-			const token: string = await client.generateToken(TEST_QUERY);
+		it('reports a 403 from i.js as a bot challenge', async () => {
+			// Given a client whose i.js request is rejected with HTTP 403
+			const forbidden = new HttpError(403, 'Forbidden');
+			const client = new ImageSearchClient(new ImageSearchParser(), new FailingHttpClient(forbidden));
 
 			// When an image search is performed
-			const results: ImageSearchResult[] = await client.imageSearch(TEST_QUERY, token);
+			// Then it fails with a BotChallengeError that keeps the 403 as its cause
+			await assert.rejects(client.imageSearch('test', '4-123'), (error: unknown) => {
+				assert.ok(error instanceof BotChallengeError);
+				assert.equal(error.reason, 'forbidden');
+				assert.equal(error.cause, forbidden);
 
-			// Then it returns a non-empty list, each with valid thumbnail and image URLs
-			assert.ok(results.length > 0, 'results should not be empty');
-			for (const result of results) {
-				assertHttpUrl(result.imageUrl, 'imageUrl');
-				assertHttpUrl(result.thumbnailUrl, 'thumbnailUrl');
-			}
+				return true;
+			});
 		});
 
-		it('applies search options without error', { timeout: NETWORK_TIMEOUT_MS }, async () => {
-			// Given a valid token and a set of search options
-			const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
-			const token: string = await client.generateToken(TEST_QUERY);
+		it('passes other HTTP errors through unchanged', async () => {
+			// Given a client whose i.js request fails with HTTP 500
+			const serverError = new HttpError(500, 'Internal Server Error');
+			const client = new ImageSearchClient(new ImageSearchParser(), new FailingHttpClient(serverError));
 
-			// When searching with size, layout and safe-search constraints
-			const results: ImageSearchResult[] = await client.imageSearch(TEST_QUERY, token, {
-				size: 'Large',
-				layout: 'Square',
-				safeSearch: 'Strict'
+			// When an image search is performed
+			// Then the original HttpError is rethrown
+			await assert.rejects(client.imageSearch('test', '4-123'), (error: unknown) => {
+				assert.equal(error, serverError);
+
+				return true;
 			});
-
-			// Then a parsed result list is still returned
-			assert.ok(Array.isArray(results));
 		});
-
-		for (const safeSearch of ['Off', 'Moderate', 'Strict'] as const) {
-			it(`returns parsed results with safe search ${safeSearch}`, { timeout: NETWORK_TIMEOUT_MS }, async () => {
-				// Given a token minted with the safe search level
-				const client = new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient());
-				const token: string = await client.generateToken(TEST_QUERY, { safeSearch });
-
-				// When searching with the same level
-				const results: ImageSearchResult[] = await client.imageSearch(TEST_QUERY, token, { safeSearch });
-
-				// Then DDG accepts the level and returns a non-empty list
-				assert.ok(results.length > 0, 'results should not be empty');
-			});
-		}
 	});
 });

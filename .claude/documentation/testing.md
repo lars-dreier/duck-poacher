@@ -29,18 +29,24 @@ TypeScript runs without a separate compile step.
 
 | Command | Purpose |
 |---------|---------|
-| `npm test` | Run all `test/**/*.test.ts` once |
-| `npm run test:coverage` | Run with `--experimental-test-coverage` |
-| `npm run test:watch` | Re-run on change |
+| `npm test` | Run the offline specs once (`test/**/!(*.live).test.ts`); no network |
+| `npm run test:live` | Run the live specs once (`test/**/*.live.test.ts`), one file at a time |
+| `npm run test:coverage` | Run all specs, offline and live, with `--experimental-test-coverage`, one file at a time |
+| `npm run test:watch` | Re-run the offline specs on change |
 
-The underlying invocation is `tsx --test "test/**/*.test.ts"`.
+The underlying invocations are `tsx --test "test/**/!(*.live).test.ts"` and
+`tsx --test --test-concurrency=1 "test/**/*.live.test.ts"`. The offline glob relies on the
+test runner's extglob support. `prepublishOnly` runs both.
 
 ## Live Integration Tests
 
-This package scrapes DuckDuckGo's undocumented image and web search endpoints, so the specs
-marked `live` in [Test Layout](#test-layout) hit the real API. The network layer is
-deliberately not mocked, stubbed or recorded: a double would only prove the code calls
-itself, not that it still works against a live, drifting target.
+This package scrapes DuckDuckGo's undocumented image and web search endpoints, so the
+`*.live.test.ts` specs hit the real API. They run only through `npm run test:live`, never in
+`npm test` or `test:watch`. Live specs deliberately don't mock, stub or record the network:
+a double would only prove the code calls itself, not that it still works against a live,
+drifting target. A double is fine in an offline spec that tests the client's own logic for a
+failure DDG can't be made to produce on demand, such as the 403 mapping in
+`ImageSearchClient.test.ts`.
 
 - **Network is required** for live specs; they fail without connectivity.
 - **DDG can break them.** A failure usually means DDG changed, not that the test is flaky:
@@ -48,6 +54,9 @@ itself, not that it still works against a live, drifting target.
   [architecture.md](architecture.md#duckduckgo-protocol-quirks).
 - **Bot challenges fail the run.** No spec skips or tolerates one: `BotChallengeError` rejects
   the live `imageSearch` specs ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
+- **DDG rate-limits repeated runs.** A few back-to-back `test:live` runs get `i.js` blocked
+  for a while. That is why live specs are kept out of `npm test` and run one file at a time.
+  Run them deliberately, not in a loop.
 
 ## Test Layout
 
@@ -56,20 +65,23 @@ itself, not that it still works against a live, drifting target.
 ```
 test/
   TestHelper.ts                    shared fixtures (not a spec)
-  DuckDuckGo.test.ts               live: public facade, imageSearch and webSearch
+  DuckDuckGo.live.test.ts          live: public facade, imageSearch and webSearch
   common/
-    BotChallengeError.test.ts      offline: error name, reason, message
+    BotChallengeError.test.ts      offline: error name, reason, message, cause
     GlobalSearchOptions.test.ts    offline: safe search cookie headers, safeSearchParam values
   image/
-    ImageSearchClient.test.ts      live: image token generation + search
+    ImageSearchClient.live.test.ts live: image token generation + search
+    ImageSearchClient.test.ts      offline: i.js 403 → BotChallengeError, other HTTP errors pass through
     ImageSearchParser.test.ts      offline: JSON string to ImageSearchResult, bot challenges
     ImageSearchResult.test.ts      offline: value object
   web/
-    WebSearchClient.test.ts        live: web search-URL generation + search
+    WebSearchClient.live.test.ts   live: web search-URL generation + search
     WebSearchParser.test.ts        offline: d.js string to WebSearchResult
 ```
 
-Specs end in `.test.ts`; support files do not, so the glob skips them.
+Specs end in `.test.ts`; support files do not, so the globs skip them. A spec that hits
+DuckDuckGo ends in `.live.test.ts`, which is all that routes it to `test:live` instead of
+`npm test`.
 
 ## Shared Fixtures
 
@@ -92,7 +104,9 @@ string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans fo
   `// Then` sit together above it.
 - **Construction:** inject the parser and a `DdgHttpClient` through the client constructor, e.g.
   `new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient())`; the facade is
-  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)).
+  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)). Offline client
+  specs inject a `DdgHttpClient` subclass that overrides `get` instead (`FailingHttpClient`
+  in `ImageSearchClient.test.ts`), which avoids casts.
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options argument on
   every live spec; omit it on offline specs. A spec that searches mints a token first, so two
   sequential requests share that budget.
@@ -103,7 +117,8 @@ string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans fo
   result URLs, and `assert.ok(results.length > 0, ...)` for non-empty lists.
 - **Offline assertions:** `assert.equal` for field mappings, `assert.deepEqual` for header
   objects, `assert.throws` with a validator function or `{ name, reason }` object for
-  `BotChallengeError`.
+  `BotChallengeError`, and `assert.rejects` with a validator function for async client
+  methods.
 
 ## Type-Checking the Test Tree
 

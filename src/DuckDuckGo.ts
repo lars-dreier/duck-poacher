@@ -32,7 +32,8 @@ export default class DuckDuckGo {
 	 * @param options - Optional filters (size, color, type, layout, ...) and safe search level
 	 * (DDG's moderate default when omitted).
 	 * @returns The parsed image results.
-	 * @throws `BotChallengeError` if DuckDuckGo answers with a bot challenge. Also throws if the `vqd` token
+	 * @throws `BotChallengeError` if DuckDuckGo answers with a bot challenge or rejects the search with HTTP 403
+	 * (`reason` `forbidden`). Also throws if the `vqd` token
 	 * cannot be scraped from the response, or if the search response body cannot be parsed. HTTP errors are
 	 * propagated.
 	 */

@@ -47,7 +47,7 @@ DuckDuckGo.imageSearch(query, options?)
 ImageSearchClient.generateToken(query, options)
   ↓ (GET duckduckgo.com with safe search cookie, scrape vqd)
 ImageSearchClient.imageSearch(query, token, options)
-  ↓ (GET duckduckgo.com/i.js with f and p params and safe search cookie)
+  ↓ (GET duckduckgo.com/i.js with f and p params and safe search cookie; HTTP 403 → BotChallengeError)
 ImageSearchParser.parse(responseText)
   ↓ (JSON body; throws BotChallengeError on a challenge)
 Promise<ImageSearchResult[]>
@@ -159,7 +159,11 @@ These make the library brittle and are why the tests hit the live API ([testing.
 4. **Web response format.** Results are embedded in a `DDG.pageLayout.load('d', [...])` JavaScript call, requiring marker-based extraction and bracket matching.
 5. **Browser imitation.** Image search sends a Firefox on macOS user-agent on both requests. Web search sends a Windows Chrome user-agent with `sec-ch-ua` and `sec-fetch-*` headers on `d.js`, and only `dnt` on the page fetch.
 6. **Content encoding.** `node-http-toolkit`'s `HttpResponseReader` decompresses gzip, deflate and brotli and throws on anything else, including `zstd`, so the clients' `accept-encoding` headers omit `zstd`.
-7. **Bot challenges.** `i.js` can answer with a `challenge` object instead of `results`. `cc` is an undocumented category such as `botnet`. Usually temporary: a search on the real website clears it.
+7. **Bot challenges.** DDG gates `i.js` with a browser-side challenge, which its scripts call SerpChallenge. The results page embeds `window.__sc__`: a hash `h`, a signed blob `d`, and an obfuscated function `s` that needs a DOM to compute. DDG's scripts add the result as `jsa`, plus `jsa_hash` and `dp`, to their `i.js` requests. This library sends none of them and does not try to solve the challenge. DDG tolerates that for a burst of requests, then blocks `i.js` for the client. Token pages and web search keep working. A block arrives in one of two forms:
+   - an HTTP 200 whose JSON carries a `challenge` object instead of `results`, where `cc` is an undocumented category such as `botnet`;
+   - an HTTP 403 with a plain-text body.
+
+   Both become `BotChallengeError`. Usually temporary: waiting, or a search on the real website, clears it.
 
 ## Error Handling
 
@@ -170,12 +174,13 @@ Clients and parsers throw rather than log or swallow; everything propagates thro
 | Image token not found | `Error('Unable to read token from DuckDuckGo response.')` |
 | Web search URL not found | `Error('Unable to read search URL from DuckDuckGo response.')` |
 | `i.js` body has `challenge` | `BotChallengeError` |
+| `i.js` HTTP 403 | `BotChallengeError('forbidden')`, with the `HttpError` (headers and raw body) as `cause` |
 | `i.js` body not JSON or lacks `results` | `SyntaxError` from `JSON.parse`, or `TypeError` from iterating `undefined` |
 | `d.js` marker missing or array unbalanced | `Error('Unable to read results from DuckDuckGo response.')` |
 | `d.js` array is not valid JSON | `SyntaxError` from `JSON.parse` |
-| HTTP status >= 400 | `HttpError` from `node-http-toolkit` |
+| Any other HTTP status >= 400 | `HttpError` from `node-http-toolkit` |
 | Network error, more than 10 redirects, other unexpected status | Rejection from `AsyncResolvingHttpRequest` |
 
 No request timeout is configured, so a stalled connection can hang indefinitely.
 
-`BotChallengeError` (`src/common/BotChallengeError.ts`) exposes `reason` (`cc`, or `unknown`) and a fixed `name` of `'BotChallengeError'`, so callers can identify it where `instanceof` fails because an app loaded both the ESM and CJS builds. Only `ImageSearchParser` throws it. Web search and both token steps have no challenge detection, so a challenge there surfaces as the generic errors above.
+`BotChallengeError` (`src/common/BotChallengeError.ts`) exposes `reason` (`cc`, `unknown`, or `forbidden` for a 403), an optional standard `cause`, and a fixed `name` of `'BotChallengeError'`. The fixed `name` lets callers identify it where `instanceof` fails because an app loaded both the ESM and CJS builds. `ImageSearchParser` throws it for a `challenge` body, and `ImageSearchClient.imageSearch` throws it for a 403 from `i.js`. Web search and both token steps have no challenge detection, so a challenge there surfaces as the generic errors above.
