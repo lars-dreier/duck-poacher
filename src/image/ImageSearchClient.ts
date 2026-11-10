@@ -1,4 +1,6 @@
+import { HttpError } from 'node-http-toolkit';
 import type * as http from 'node:http';
+import BotChallengeError from '../common/BotChallengeError.ts';
 import type DdgHttpClient from '../common/DdgHttpClient.ts';
 import type { DdgSearchOptions } from '../common/DdgSearchOptions.ts';
 import GlobalSearchOptions from '../common/GlobalSearchOptions.ts';
@@ -8,7 +10,8 @@ import type ImageSearchResult from './ImageSearchResult.ts';
 
 /**
  * Talks to DuckDuckGo's image endpoint: scrapes a per-query `vqd` token from the search page, then fetches `i.js`
- * with the token, the positional `f` filter string and the safe search level.
+ * with the token, the positional `f` filter string and the safe search level. A 403 from `i.js` is DDG blocking the
+ * client, so it is reported as a `BotChallengeError` like a `challenge` body.
  */
 export default class ImageSearchClient {
 	// Order is important
@@ -27,7 +30,7 @@ export default class ImageSearchClient {
 		dnt: '1',
 		'sec-gpc': '1',
 		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0',
-		'accept-language': 'en-US,en;q=0.9,de-DE;q=0.8',
+		'accept-language': 'en-US,en;q=0.9',
 		'accept-encoding': 'gzip, deflate, br'
 	};
 
@@ -53,6 +56,10 @@ export default class ImageSearchClient {
 	};
 
 	private static readonly TOKEN_REGEX: RegExp = /vqd=(?<vqd>[\d-]+)/;
+
+	private static readonly FORBIDDEN_STATUS: number = 403;
+
+	private static readonly FORBIDDEN_REASON: string = 'forbidden';
 
 	public constructor(
 		private readonly _parser: ImageSearchParser,
@@ -94,18 +101,32 @@ export default class ImageSearchClient {
 			token,
 			searchOptions
 		);
-		const responseText: string = await this._httpClient.get(
-			url,
-			ImageSearchClient.SEARCH_HEADERS,
-			searchOptions
-		);
+		const responseText: string = await this.fetchResults(url, searchOptions);
 
 		return this._parser.parse(responseText);
 	}
 
+	// DDG blocks i.js either with a `challenge` body or with a plain-text 403; callers get the same error for both.
+	private async fetchResults(url: string, options: DdgImageSearchOptions): Promise<string> {
+		try {
+			return await this._httpClient.get(
+				url,
+				ImageSearchClient.SEARCH_HEADERS,
+				options
+			);
+		}
+		catch (error: unknown) {
+			if (error instanceof HttpError && error.statusCode === ImageSearchClient.FORBIDDEN_STATUS) {
+				throw new BotChallengeError(ImageSearchClient.FORBIDDEN_REASON, { cause: error });
+			}
+
+			throw error;
+		}
+	}
+
 	private createSearchUrl(query: string, token: string, options: DdgImageSearchOptions): string {
 		const params = new URLSearchParams();
-		params.append('l', 'de-de');
+		params.append('l', 'us-en');
 		params.append('o', 'json');
 		params.append('q', query);
 		params.append('vqd', token);

@@ -27,11 +27,12 @@
 		"build": "tsdown",
 		"typecheck": "tsc --noEmit",
 		"check:exports": "attw --pack .",
-		"prepublishOnly": "npm test && npm run typecheck && npm run build && npm run check:exports",
+		"prepublishOnly": "npm test && npm run test:live && npm run typecheck && npm run build && npm run check:exports",
 		"dev": "tsdown --watch",
-		"test": "tsx --test \"test/**/*.test.ts\"",
-		"test:coverage": "tsx --test --experimental-test-coverage \"test/**/*.test.ts\"",
-		"test:watch": "tsx --test --watch \"test/**/*.test.ts\"",
+		"test": "tsx --test \"test/**/!(*.live).test.ts\"",
+		"test:live": "tsx --test --test-concurrency=1 \"test/**/*.live.test.ts\"",
+		"test:coverage": "tsx --test --experimental-test-coverage --test-concurrency=1 \"test/**/*.test.ts\"",
+		"test:watch": "tsx --test --watch \"test/**/!(*.live).test.ts\"",
 		"code-style:apply": "npm run code-style:lint:fix && npm run code-style:format",
 		"code-style:lint": "eslint .",
 		"code-style:lint:fix": "eslint . --fix",
@@ -76,6 +77,6 @@
 		"typescript-eslint": "8.61.0"
 	},
 	"dependencies": {
-		"node-http-toolkit": "1.0.1"
+		"node-http-toolkit": "1.1.0"
 	}
 }
