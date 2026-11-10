@@ -46,7 +46,7 @@ other.
 | Class files | PascalCase, match the class | `ImageSearchClient.ts` |
 | Type alias files | PascalCase, match the main type | `DdgSearchOptions.ts`, `DdgImageSearchOptions.ts` |
 | const-object enum files | PascalCase, match the enum | `SafeSearchParam.ts` → `SafeSearchParam` |
-| Test files | class name + `.test.ts` | `GlobalSearchOptions.test.ts` |
+| Test files | class name + `.test.ts`; `.live.test.ts` if it hits DuckDuckGo | `GlobalSearchOptions.test.ts`, `ImageSearchClient.live.test.ts` |
 | Classes | PascalCase | `DuckDuckGo`, `WebSearchParser` |
 | Interfaces | PascalCase, prefixed `I` **[lint]** | `IDdgResult`, `IDdgWebResult` |
 | Type aliases | PascalCase, no prefix | `DdgSafeSearch`, `DdgSearchOptions` |

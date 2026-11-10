@@ -68,9 +68,9 @@ existing `dist/` without building, so run `npm run build` first. Run it after ch
 
 ## Publishing
 
-`prepublishOnly` chains `npm test` → `typecheck` → `build` → `check:exports`, so any failure
-blocks `npm publish`. `npm test` includes live specs that need the network; a failure may
-mean DDG changed, not that the code broke
+`prepublishOnly` chains `npm test` → `test:live` → `typecheck` → `build` → `check:exports`,
+so any failure blocks `npm publish`. `test:live` needs the network; a failure may mean DDG
+changed or rate-limited the IP, not that the code broke
 ([testing.md](testing.md#live-integration-tests)).
 
 ## Typical Loops
@@ -79,6 +79,7 @@ mean DDG changed, not that the code broke
 |------|----------|
 | Implement a feature | edit `src/` → `npm run test:watch` → `npm run code-style:apply` |
 | Verify before commit | `npm run typecheck && npm test && npm run code-style:lint && npm run code-style:format:check` |
+| Verify against DDG | `npm run test:live` (once, not in a loop) |
 | Validate packaging | `npm run build && npm run check:exports` |
 
 ## Common Pitfalls

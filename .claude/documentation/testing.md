@@ -29,16 +29,20 @@ TypeScript runs without a separate compile step.
 
 | Command | Purpose |
 |---------|---------|
-| `npm test` | Run all `test/**/*.test.ts` once |
-| `npm run test:coverage` | Run with `--experimental-test-coverage` |
-| `npm run test:watch` | Re-run on change |
+| `npm test` | Run the offline specs once (`test/**/!(*.live).test.ts`); no network |
+| `npm run test:live` | Run the live specs once (`test/**/*.live.test.ts`), one file at a time |
+| `npm run test:coverage` | Run all specs, offline and live, with `--experimental-test-coverage`, one file at a time |
+| `npm run test:watch` | Re-run the offline specs on change |
 
-The underlying invocation is `tsx --test "test/**/*.test.ts"`.
+The underlying invocations are `tsx --test "test/**/!(*.live).test.ts"` and
+`tsx --test --test-concurrency=1 "test/**/*.live.test.ts"`. The offline glob relies on the
+test runner's extglob support. `prepublishOnly` runs both.
 
 ## Live Integration Tests
 
-This package scrapes DuckDuckGo's undocumented image and web search endpoints, so the specs
-marked `live` in [Test Layout](#test-layout) hit the real API. The network layer is
+This package scrapes DuckDuckGo's undocumented image and web search endpoints, so the
+`*.live.test.ts` specs hit the real API. They run only through `npm run test:live`, never in
+`npm test` or `test:watch`. The network layer is
 deliberately not mocked, stubbed or recorded: a double would only prove the code calls
 itself, not that it still works against a live, drifting target.
 
@@ -48,6 +52,9 @@ itself, not that it still works against a live, drifting target.
   [architecture.md](architecture.md#duckduckgo-protocol-quirks).
 - **Bot challenges fail the run.** No spec skips or tolerates one: `BotChallengeError` rejects
   the live `imageSearch` specs ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
+- **DDG rate-limits repeated runs.** A few back-to-back `test:live` runs get `i.js` blocked
+  for a while. That is why live specs are kept out of `npm test` and run one file at a time.
+  Run them deliberately, not in a loop.
 
 ## Test Layout
 
@@ -56,20 +63,22 @@ itself, not that it still works against a live, drifting target.
 ```
 test/
   TestHelper.ts                    shared fixtures (not a spec)
-  DuckDuckGo.test.ts               live: public facade, imageSearch and webSearch
+  DuckDuckGo.live.test.ts          live: public facade, imageSearch and webSearch
   common/
     BotChallengeError.test.ts      offline: error name, reason, message
     GlobalSearchOptions.test.ts    offline: safe search cookie headers, safeSearchParam values
   image/
-    ImageSearchClient.test.ts      live: image token generation + search
+    ImageSearchClient.live.test.ts live: image token generation + search
     ImageSearchParser.test.ts      offline: JSON string to ImageSearchResult, bot challenges
     ImageSearchResult.test.ts      offline: value object
   web/
-    WebSearchClient.test.ts        live: web search-URL generation + search
+    WebSearchClient.live.test.ts   live: web search-URL generation + search
     WebSearchParser.test.ts        offline: d.js string to WebSearchResult
 ```
 
-Specs end in `.test.ts`; support files do not, so the glob skips them.
+Specs end in `.test.ts`; support files do not, so the globs skip them. A spec that hits
+DuckDuckGo ends in `.live.test.ts`, which is all that routes it to `test:live` instead of
+`npm test`.
 
 ## Shared Fixtures
 
