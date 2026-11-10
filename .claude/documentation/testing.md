@@ -42,9 +42,11 @@ test runner's extglob support. `prepublishOnly` runs both.
 
 This package scrapes DuckDuckGo's undocumented image and web search endpoints, so the
 `*.live.test.ts` specs hit the real API. They run only through `npm run test:live`, never in
-`npm test` or `test:watch`. The network layer is
-deliberately not mocked, stubbed or recorded: a double would only prove the code calls
-itself, not that it still works against a live, drifting target.
+`npm test` or `test:watch`. Live specs deliberately don't mock, stub or record the network:
+a double would only prove the code calls itself, not that it still works against a live,
+drifting target. A double is fine in an offline spec that tests the client's own logic for a
+failure DDG can't be made to produce on demand, such as the 403 mapping in
+`ImageSearchClient.test.ts`.
 
 - **Network is required** for live specs; they fail without connectivity.
 - **DDG can break them.** A failure usually means DDG changed, not that the test is flaky:
@@ -65,10 +67,11 @@ test/
   TestHelper.ts                    shared fixtures (not a spec)
   DuckDuckGo.live.test.ts          live: public facade, imageSearch and webSearch
   common/
-    BotChallengeError.test.ts      offline: error name, reason, message
+    BotChallengeError.test.ts      offline: error name, reason, message, cause
     GlobalSearchOptions.test.ts    offline: safe search cookie headers, safeSearchParam values
   image/
     ImageSearchClient.live.test.ts live: image token generation + search
+    ImageSearchClient.test.ts      offline: i.js 403 → BotChallengeError, other HTTP errors pass through
     ImageSearchParser.test.ts      offline: JSON string to ImageSearchResult, bot challenges
     ImageSearchResult.test.ts      offline: value object
   web/
@@ -101,7 +104,9 @@ string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans fo
   `// Then` sit together above it.
 - **Construction:** inject the parser and a `DdgHttpClient` through the client constructor, e.g.
   `new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient())`; the facade is
-  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)).
+  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)). Offline client
+  specs inject a `DdgHttpClient` subclass that overrides `get` instead (`FailingHttpClient`
+  in `ImageSearchClient.test.ts`), which avoids casts.
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options argument on
   every live spec; omit it on offline specs. A spec that searches mints a token first, so two
   sequential requests share that budget.
@@ -112,7 +117,8 @@ string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans fo
   result URLs, and `assert.ok(results.length > 0, ...)` for non-empty lists.
 - **Offline assertions:** `assert.equal` for field mappings, `assert.deepEqual` for header
   objects, `assert.throws` with a validator function or `{ name, reason }` object for
-  `BotChallengeError`.
+  `BotChallengeError`, and `assert.rejects` with a validator function for async client
+  methods.
 
 ## Type-Checking the Test Tree
 
