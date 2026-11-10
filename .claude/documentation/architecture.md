@@ -82,7 +82,7 @@ Stateless across calls. Each search makes two live HTTP requests, minting a fres
 
 GETs `https://duckduckgo.com/i.js` with `SEARCH_HEADERS` plus any safe search cookie, and hands the body to `_parser.parse`. URL parameters, built in `createSearchUrl`:
 
-- `l`: `de-de` (hardcoded)
+- `l`: `us-en` (hardcoded)
 - `o`: `json`
 - `q`: query
 - `vqd`: token

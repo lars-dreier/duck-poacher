@@ -30,7 +30,7 @@ export default class ImageSearchClient {
 		dnt: '1',
 		'sec-gpc': '1',
 		'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0',
-		'accept-language': 'en-US,en;q=0.9,de-DE;q=0.8',
+		'accept-language': 'en-US,en;q=0.9',
 		'accept-encoding': 'gzip, deflate, br'
 	};
 
@@ -126,7 +126,7 @@ export default class ImageSearchClient {
 
 	private createSearchUrl(query: string, token: string, options: DdgImageSearchOptions): string {
 		const params = new URLSearchParams();
-		params.append('l', 'de-de');
+		params.append('l', 'us-en');
 		params.append('o', 'json');
 		params.append('q', query);
 		params.append('vqd', token);
