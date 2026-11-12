@@ -3,7 +3,7 @@ title: "DuckDuckGo Search Protocol"
 description: "Reference for DuckDuckGo's undocumented search protocol as observed from browsers: the results page, the vqd token and its rotation, image search (i.js), web search (d.js), pagination, safe search, region, bot detection and browser request profiles, each claim labelled with its evidence and how to re-check it."
 category: "reference"
 tags: ["ddg", "protocol", "vqd", "i.js", "d.js", "safe-search", "pagination", "bot-challenge", "headers"]
-last_updated: "2026-11-12T12:36:09Z"
+last_updated: "2026-11-12T18:03:30Z"
 related_docs: ["architecture.md", "testing.md"]
 ---
 
@@ -247,7 +247,8 @@ block.
 ## Browser Request Profiles
 
 Firefox 160 on macOS, HTTP/2, headers in sending order **[observed 2026-11-12]**. HTTP/2 sends header names in lower
-case; `Connection` and `TE` are listed as the developer tools report them.
+case; `Connection` and `TE` are listed as the developer tools report them. A client imitating Firefox should track the
+current release.
 
 | Header | Results page | `i.js` | `d.js` |
 |---|---|---|---|
@@ -265,10 +266,8 @@ case; `Connection` and `TE` are listed as the developer tools report them.
 | `Sec-Fetch-Mode` | `navigate` | `cors` | `no-cors` |
 | `Sec-Fetch-Site` | `none` when typed, `same-origin` from DDG | `same-origin` | `same-site` |
 | `Sec-Fetch-User` | `?1` | — | — |
-| `Priority` | `u=0, i` | `u=4` | `u=1` |
-| `TE` | — | `trailers` | `trailers` |
-
-Firefox reported 159 on 2026-11-10 and 160 on 2026-11-12. A client imitating it should track the current release.
+| `Priority` | `u=0, i` | `u=4` | `u=1` on the first page; absent on pages from `n` |
+| `TE` | `trailers` on some requests | same | same |
 
 ## Open Questions
 

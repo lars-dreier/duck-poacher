@@ -1,10 +1,10 @@
 ---
 title: "Testing Guide"
-description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API (image and web search), offline parser, value-object, error and options specs, shared fixtures, and conventions."
+description: "How the test suite is structured and run: the node:test runner via tsx, live integration tests against the real DuckDuckGo API (image search, image search sessions, web search), offline parser, value-object, error, options, request-header and session specs with HttpClient test doubles, shared fixtures, and conventions."
 category: "guide"
 tags: ["testing", "node-test", "tsx", "integration", "live-api", "conventions"]
-last_updated: "2026-11-09T21:41:39Z"
-related_docs: ["development.md", "architecture.md", "code-style.md", "overview.md"]
+last_updated: "2026-11-12T18:03:30Z"
+related_docs: ["development.md", "architecture.md", "ddg-protocol.md", "code-style.md", "overview.md"]
 ---
 
 # Testing Guide
@@ -44,16 +44,16 @@ This package scrapes DuckDuckGo's undocumented image and web search endpoints, s
 `*.live.test.ts` specs hit the real API. They run only through `npm run test:live`, never in
 `npm test` or `test:watch`. Live specs deliberately don't mock, stub or record the network:
 a double would only prove the code calls itself, not that it still works against a live,
-drifting target. A double is fine in an offline spec that tests the client's own logic for a
-failure DDG can't be made to produce on demand, such as the 403 mapping in
-`ImageSearchClient.test.ts`.
+drifting target. A double is fine in an offline spec that tests the client's own logic: what
+it sends (header order, session URLs) or how it maps a failure DDG can't be made to produce
+on demand (the 403 mapping).
 
 - **Network is required** for live specs; they fail without connectivity.
 - **DDG can break them.** A failure usually means DDG changed, not that the test is flaky:
   investigate the real response before "fixing" the test. What drifts is in
   [architecture.md](architecture.md#duckduckgo-protocol-quirks).
 - **Bot challenges fail the run.** No spec skips or tolerates one: `BotChallengeError` rejects
-  the live `imageSearch` specs ([architecture.md](architecture.md#duckduckgo-protocol-quirks)).
+  the live image search specs, sessions included ([ddg-protocol.md](ddg-protocol.md#bot-detection)).
 - **DDG rate-limits repeated runs.** A few back-to-back `test:live` runs get `i.js` blocked
   for a while. That is why live specs are kept out of `npm test` and run one file at a time.
   Run them deliberately, not in a loop.
@@ -65,15 +65,18 @@ failure DDG can't be made to produce on demand, such as the 403 mapping in
 ```
 test/
   TestHelper.ts                    shared fixtures (not a spec)
-  DuckDuckGo.live.test.ts          live: public facade, imageSearch and webSearch
+  DuckDuckGo.live.test.ts          live: public facade, imageSearch, createImageSearchSession, webSearch
   common/
     BotChallengeError.test.ts      offline: error name, reason, message, cause
     GlobalSearchOptions.test.ts    offline: safe search cookie headers, safeSearchParam values
   image/
-    ImageSearchClient.live.test.ts live: image token generation + search
-    ImageSearchClient.test.ts      offline: i.js 403 → BotChallengeError, other HTTP errors pass through
+    ImageSearchClient.live.test.ts live: image token generation + search, per safe search level
+    ImageSearchClient.test.ts      offline: header order of token page and i.js requests
+                                   (ddg-protocol.md#browser-request-profiles); i.js 403 → BotChallengeError,
+                                   other HTTP errors pass through
     ImageSearchParser.test.ts      offline: JSON string to ImageSearchResult, bot challenges
     ImageSearchResult.test.ts      offline: value object
+    ImageSearchSession.test.ts     offline: token and query reused across searches with different filters / safe search
   web/
     WebSearchClient.live.test.ts   live: web search-URL generation + search
     WebSearchParser.test.ts        offline: d.js string to WebSearchResult
@@ -95,28 +98,33 @@ Offline specs build inputs inline: `ImageSearchParser.test.ts` uses a `JSON.stri
 `{ results: [...] }` or `{ challenge: {...} }` body, and `WebSearchParser.test.ts` uses a
 string embedding the `DDG.pageLayout.load('d',[...])` marker the parser scans for.
 
+Offline client specs define their own `DdgHttpClient` subclass overriding `get`, local to the file:
+`StubHttpClient` (`ImageSearchClient.test.ts`) records each request's headers and rejects with a
+constructor-given error or answers `vqd=4-123&` / `{"results":[]}`; `RecordingHttpClient`
+(`ImageSearchSession.test.ts`) records each URL and `DdgSearchOptions` and answers `{"results":[]}`.
+
 ## Conventions
 
 - **Structure:** `describe` per class, nested `describe` per member (method, getter or
   `constructor`), `it` per behavior.
 - **Given/When/Then:** each `it` body carries `// Given`, `// When`, `// Then` comments
-  narrating the scenario. Where `assert.throws` both acts and asserts, `// When` and
-  `// Then` sit together above it.
+  narrating the scenario. Where `assert.throws` or `assert.rejects` both acts and asserts,
+  `// When` and `// Then` sit together above it.
 - **Construction:** inject the parser and a `DdgHttpClient` through the client constructor, e.g.
   `new ImageSearchClient(new ImageSearchParser(), new DdgHttpClient())`; the facade is
-  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)). Offline client
-  specs inject a `DdgHttpClient` subclass that overrides `get` instead (`FailingHttpClient`
-  in `ImageSearchClient.test.ts`), which avoids casts.
+  `new DuckDuckGo()` ([code-style.md](code-style.md#dependency-injection)). Offline specs inject
+  one of the subclasses above instead, which avoids casts.
 - **Network timeout:** pass `{ timeout: NETWORK_TIMEOUT_MS }` as the `it` options argument on
-  every live spec; omit it on offline specs. A spec that searches mints a token first, so two
-  sequential requests share that budget.
+  every live spec; omit it on offline specs. All requests of one spec share that budget: a
+  search mints a token first, and the session spec runs a token and two searches.
 - **Live assertions:** assert on shape, never on specific results, which change constantly.
   Use `assert.match` for tokens and URLs (`/^[\d-]+$/` for the image vqd;
   `/^https:\/\/links\.duckduckgo\.com\/d\.js\?/` and `/[&?]dp=/` for the web search URL;
   `ex=-1`, `ex=-2` and `p=1` parameters for its safe search levels), `assertHttpUrl` for
   result URLs, and `assert.ok(results.length > 0, ...)` for non-empty lists.
-- **Offline assertions:** `assert.equal` for field mappings, `assert.deepEqual` for header
-  objects, `assert.throws` with a validator function or `{ name, reason }` object for
+- **Offline assertions:** `assert.equal` for field mappings and recorded URL parameters
+  (`url.searchParams.get(...)`), `assert.deepEqual` for header objects and for header order
+  (`Object.keys(headers)`), `assert.throws` with a validator function or `{ name, reason }` object for
   `BotChallengeError`, and `assert.rejects` with a validator function for async client
   methods.
 

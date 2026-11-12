@@ -2,7 +2,7 @@
 
 ## [architecture.md](architecture.md)
 
-How the package implements the protocol: the `DuckDuckGo` composition root over `ImageSearchClient`, `WebSearchClient` and `DdgHttpClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, what DDG changes would break, and error handling.
+How the package implements the protocol: the `DuckDuckGo` composition root over `ImageSearchClient`, `ImageSearchSession` (token reuse), `WebSearchClient` and `DdgHttpClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, what DDG changes would break, and error handling.
 
 **Use when:**
 
@@ -40,7 +40,7 @@ How to build, type-check and publish: required Node version, dual tsconfig setup
 
 ## [overview.md](overview.md)
 
-What duck-poacher is: its stack, the public API surface (`DuckDuckGo`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
+What duck-poacher is: its stack, the public API surface (`DuckDuckGo`, `ImageSearchSession`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
 
 **Use when:**
 

@@ -1,16 +1,13 @@
 ---
 title: "Architecture & Internals"
-description: "How duck-poacher works inside: the DuckDuckGo composition root, ImageSearchClient, WebSearchClient and the shared DdgHttpClient, the token→search→parse flow, image filter encoding, safe search handling, parsers, bot-challenge detection, DuckDuckGo protocol quirks and error handling."
+description: "How duck-poacher works inside: the DuckDuckGo composition root, ImageSearchClient and ImageSearchSession (vqd token reuse), WebSearchClient and the shared DdgHttpClient, the token→search→parse flow, image filter encoding, safe search handling, parsers, bot-challenge detection, DuckDuckGo protocol quirks and error handling."
 category: "architecture"
-tags: ["architecture", "design", "ddg", "search-strategy", "data-flow", "internals", "safe-search", "bot-challenge"]
-last_updated: "2026-11-12T12:36:09Z"
+tags: ["architecture", "design", "ddg", "search-strategy", "data-flow", "internals", "safe-search", "bot-challenge", "session"]
+last_updated: "2026-11-12T18:03:30Z"
 related_docs: ["ddg-protocol.md", "overview.md", "code-style.md", "testing.md"]
 ---
 
 # Architecture & Internals
-
-How the package implements DuckDuckGo's protocol. The protocol itself (tokens, parameters, safe search values, bot
-detection, browser headers) is described in [ddg-protocol.md](ddg-protocol.md).
 
 ## Table of Contents
 
@@ -27,12 +24,16 @@ detection, browser headers) is described in [ddg-protocol.md](ddg-protocol.md).
 
 ---
 
+How the package implements DuckDuckGo's protocol. The protocol itself (tokens, parameters, safe search values, bot
+detection, browser headers) is described in [ddg-protocol.md](ddg-protocol.md).
+
 ## Client Layers and Parsers
 
 Image and web search each have their own client, parser and result class, because DuckDuckGo's two endpoints authenticate and respond differently.
 
 - **Facade**: `src/DuckDuckGo.ts` hides the two-step token and search sequence and is the composition root.
 - **Client**: `src/image/ImageSearchClient.ts`, `src/web/WebSearchClient.ts` own token generation, header sets and URL construction.
+- **Session**: `src/image/ImageSearchSession.ts` holds one image query and its vqd token and runs searches on it.
 - **HTTP**: `src/common/DdgHttpClient.ts` performs every GET through `get(url, headers, options?)`, applying the shared options to the headers and returning the decoded body.
 - **Parser**: `src/image/ImageSearchParser.ts`, `src/web/WebSearchParser.ts` extract results from DDG's response formats.
 - **Result**: `src/image/ImageSearchResult.ts`, `src/web/WebSearchResult.ts` are immutable value objects.
@@ -46,10 +47,10 @@ Each client receives its parser and a `DdgHttpClient` as the constructor paramet
 
 ```
 DuckDuckGo.imageSearch(query, options?)
-  ↓
-ImageSearchClient.generateToken(query, options)
-  ↓ (GET duckduckgo.com with safe search cookie, scrape vqd)
-ImageSearchClient.imageSearch(query, token, options)
+  ↓ createImageSearchSession(query)
+ImageSearchClient.generateToken(query)
+  ↓ (GET duckduckgo.com without options, so no safe search cookie; scrape vqd)
+ImageSearchSession.search(options) → ImageSearchClient.imageSearch(query, token, options)
   ↓ (GET duckduckgo.com/i.js with f and p params and safe search cookie; HTTP 403 → BotChallengeError)
 ImageSearchParser.parse(responseText)
   ↓ (JSON body; throws BotChallengeError on a challenge)
@@ -72,13 +73,15 @@ Promise<WebSearchResult[]>
 
 ## The Facade: DuckDuckGo
 
-Stateless across calls. Each search makes two live HTTP requests, minting a fresh token first. `imageSearch` passes `options` to both steps; `webSearch` passes them to `generateToken` only.
+Holds no state between calls. `imageSearch` and `webSearch` each mint a fresh token and make two live HTTP requests. `imageSearch` runs a one-off session: `createImageSearchSession(query)` then `session.search(options)`. `createImageSearchSession` calls `generateToken(query)` without options, because the vqd does not depend on them ([ddg-protocol.md](ddg-protocol.md#the-vqd-token)). `webSearch` passes `options` to `generateToken` only.
+
+`ImageSearchSession` is exported as a type only, so instances come from `createImageSearchSession`. It keeps `query` (public) and the token (private), and `search(options?)` calls `ImageSearchClient.imageSearch(query, token, options)`. Each search is therefore one `i.js` request, and filters and safe search level may differ per search. The session never re-mints its token, so a session used past a full UTC hour sends the previous hour's vqd ([ddg-protocol.md](ddg-protocol.md#the-vqd-token)).
 
 ## Image Search: ImageSearchClient
 
 `generateToken(query, options?: DdgSearchOptions): Promise<string>`
 
-1. GETs `https://duckduckgo.com/?q=...&atb=v299-1&iar=images&iax=images&ia=images` with `TOKEN_HEADERS` plus any safe search cookie.
+1. GETs `https://duckduckgo.com/?q=...&atb=v299-1&iar=images&iax=images&ia=images` with `TOKEN_HEADERS` plus any safe search cookie (the facade passes no options).
 2. Extracts the token with `TOKEN_REGEX`, `/vqd=(?<vqd>[\d-]+)/`.
 
 `imageSearch(query, token, options?: DdgImageSearchOptions): Promise<ImageSearchResult[]>`
@@ -117,7 +120,7 @@ GETs `searchUrl` with `SEARCH_HEADERS`, and hands the body to `_parser.parse`. `
 
 `GlobalSearchOptions` resolves an omitted `safeSearch` to `'Moderate'`, DDG's own default. `SafeSearchCookie` holds DDG's `p` cookie values and `SafeSearchParam` its `i.js` `p` URL values; the two differ for `Off`. The values per level are in [ddg-protocol.md](ddg-protocol.md#safe-search).
 
-- **Cookie.** `DdgHttpClient.get` runs `new GlobalSearchOptions(options).apply(headers)` on every request. `apply` returns a copy, so the shared static header constants never pick up a cookie. The image token, `i.js` and web token requests pass `options` to it.
+- **Cookie.** `DdgHttpClient.get` runs `new GlobalSearchOptions(options).apply(headers)` on every request. `apply` returns a copy, so the shared static header constants never pick up a cookie. The `i.js` and web token requests pass `options` to it; the image token request, as called by the facade, passes none.
 - **Image.** `i.js` carries the level twice: the `p` URL parameter, always sent, and the cookie. `Moderate` and `Strict` share a URL value, so only the cookie tells them apart.
 - **Web.** DDG bakes the level into the signed URL when the page is fetched, so the cookie on `generateToken` is what takes effect and the level cannot be changed on a scraped URL. The `d.js` request passes no options and so carries no cookie, as a browser sends none to `links.duckduckgo.com`. The level markers in the scraped URL (`ex=-2`, `ex=-1`, `p=1`) are asserted by the live tests in `test/web/WebSearchClient.live.test.ts`.
 
@@ -171,7 +174,7 @@ What the package depends on, and so where a DDG change breaks it first. The prot
 
 ## Error Handling
 
-Clients and parsers throw rather than log or swallow; everything propagates through `DuckDuckGo`.
+Clients and parsers throw rather than log or swallow; everything propagates through `DuckDuckGo` and `ImageSearchSession`.
 
 | Failure | Thrown |
 |---|---|
