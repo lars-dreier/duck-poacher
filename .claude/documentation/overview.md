@@ -1,10 +1,10 @@
 ---
 title: "Project Overview"
-description: "What duck-poacher is, its technology stack, the public API surface (image and web search), runnable usage examples, and the project layout."
+description: "What duck-poacher is, its technology stack, the public API surface (image search, image search sessions, web search), runnable usage examples, and the project layout."
 category: "overview"
 tags: ["overview", "getting-started", "public-api", "usage", "stack"]
-last_updated: "2026-11-09T21:41:39Z"
-related_docs: ["architecture.md", "development.md", "testing.md", "code-style.md"]
+last_updated: "2026-11-12T18:03:30Z"
+related_docs: ["architecture.md", "ddg-protocol.md", "development.md", "testing.md", "code-style.md"]
 ---
 
 # Project Overview
@@ -27,12 +27,14 @@ thumbnail URLs) and **web search** (returns title + URL + description).
 The public entry point is **`DuckDuckGo`**, the client. `imageSearch(query, options?)` and
 `webSearch(query, options?)` return parsed result objects. Each call makes two live HTTP
 requests: it mints a per-request token (a `vqd` for image search, a signed `d.js` URL for
-web search), then runs the search.
+web search), then runs the search. `createImageSearchSession(query)` mints the `vqd` once
+and returns an `ImageSearchSession` whose `search(options?)` reuses it, so repeated image
+searches for one query (any filters or safe search level) cost one request each.
 
 Because it scrapes endpoints DuckDuckGo does not document or guarantee, the library is
 brittle: DDG can change the token format, the response shape, or the accepted headers at
-any time. See [architecture.md](architecture.md#duckduckgo-protocol-quirks) for the
-moving parts.
+any time. The protocol is in [ddg-protocol.md](ddg-protocol.md); where the package depends
+on it is in [architecture.md](architecture.md#duckduckgo-protocol-quirks).
 
 ## Technology Stack
 
@@ -54,12 +56,13 @@ Everything is re-exported from the `src/index.ts` barrel. Nothing else is public
 
 | Export | Kind | Purpose |
 |--------|------|---------|
-| `DuckDuckGo` | class | The client: `imageSearch(query, options?: DdgImageSearchOptions)` and `webSearch(query, options?: DdgSearchOptions)`, token managed internally |
-| `BotChallengeError` | class | `Error` thrown by `imageSearch` when DDG answers with a bot challenge or an HTTP 403; carries `reason` (DDG's category, `unknown`, or `forbidden` for a 403) |
+| `DuckDuckGo` | class | The client: `imageSearch(query, options?: DdgImageSearchOptions)`, `webSearch(query, options?: DdgSearchOptions)`, and `createImageSearchSession(query): Promise<ImageSearchSession>`; tokens managed internally |
+| `ImageSearchSession` | type | One image query with its reused `vqd`: `query` plus `search(options?: DdgImageSearchOptions)`. Exported as a type only; obtain it from `createImageSearchSession` |
+| `BotChallengeError` | class | `Error` thrown by `imageSearch` and `ImageSearchSession.search` when DDG answers with a bot challenge or an HTTP 403; carries `reason` (DDG's category, `unknown`, or `forbidden` for a 403) |
 | `ImageSearchResult` | class | Value object: `{ thumbnailUrl, imageUrl }` |
 | `WebSearchResult` | class | Value object: `{ title, url, description }` |
 | `DdgSearchOptions` | type | Options shared by every search; the `webSearch` options |
-| `DdgImageSearchOptions` | type | `DdgSearchOptions` plus the image filters; the `imageSearch` options |
+| `DdgImageSearchOptions` | type | `DdgSearchOptions` plus the image filters; the `imageSearch` and `ImageSearchSession.search` options |
 | `DdgSafeSearch` | type | String-union value of `safeSearch` |
 | `DdgTime` `DdgSize` `DdgColor` `DdgType` `DdgLayout` `DdgLicense` | type | String-union values of the image filters |
 
@@ -99,6 +102,19 @@ for (const result of results) {
 }
 ```
 
+### Image Search Session
+
+```ts
+import { DuckDuckGo, type ImageSearchResult, type ImageSearchSession } from 'duck-poacher';
+
+const ddg = new DuckDuckGo();
+
+const session: ImageSearchSession = await ddg.createImageSearchSession('mountain landscape');
+
+const large: ImageSearchResult[] = await session.search({ size: 'Large' });
+const strictGifs: ImageSearchResult[] = await session.search({ type: 'gif', safeSearch: 'Strict' });
+```
+
 ### Web Search
 
 ```ts
@@ -113,15 +129,15 @@ for (const result of results) {
 }
 ```
 
-Both methods reject on token-scrape, HTTP, or response-parse failures, and `imageSearch` also throws
-`BotChallengeError`; see [architecture.md](architecture.md#error-handling).
+All methods reject on token-scrape, HTTP, or response-parse failures, and image searches (`imageSearch`,
+`ImageSearchSession.search`) also throw `BotChallengeError`; see [architecture.md](architecture.md#error-handling).
 
 ## Project Structure
 
 ```
 src/
   index.ts                          public barrel (re-exports only)
-  DuckDuckGo.ts                     the client wrapper (image + web search)
+  DuckDuckGo.ts                     the client wrapper (image + web search, image search sessions)
   common/
     BotChallengeError.ts            error for a DDG bot challenge
     DdgHttpClient.ts                GET requests with shared options applied (internal)
@@ -134,6 +150,7 @@ src/
     ImageSearchClient.ts            scrapes the vqd token, queries i.js
     ImageSearchParser.ts            parses one DDG image JSON body (internal)
     ImageSearchResult.ts            { thumbnailUrl, imageUrl } value object
+    ImageSearchSession.ts           one query + its vqd, reused by every search (type-only export)
   web/
     WebSearchClient.ts              scrapes the signed d.js URL, queries it
     WebSearchParser.ts              parses the embedded d.js result array (internal)
@@ -142,5 +159,5 @@ test/                               mirrors src/ (see testing.md)
 dist/                               generated by tsdown (gitignored, published)
 ```
 
-How these fit together: [architecture.md](architecture.md).
+How these fit together: [architecture.md](architecture.md). DuckDuckGo protocol: [ddg-protocol.md](ddg-protocol.md).
 Commands and publishing: [development.md](development.md); testing model: [testing.md](testing.md).

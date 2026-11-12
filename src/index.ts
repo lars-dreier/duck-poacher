@@ -11,4 +11,5 @@ export type {
 	DdgType
 } from './image/DdgImageSearchOptions.ts';
 export { default as ImageSearchResult } from './image/ImageSearchResult.ts';
+export type { default as ImageSearchSession } from './image/ImageSearchSession.ts';
 export { default as WebSearchResult } from './web/WebSearchResult.ts';

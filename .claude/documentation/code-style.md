@@ -3,7 +3,7 @@ title: "Code Style & Conventions"
 description: "How code is written: naming, files and classes, class member order, access modifiers, fields and constructor parameters, dependency injection, types, const-object enums, imports, formatting and comments."
 category: "guide"
 tags: ["code-style", "conventions", "naming", "oop", "member-order", "eslint", "dprint"]
-last_updated: "2026-11-09T21:41:39Z"
+last_updated: "2026-11-12T18:03:30Z"
 related_docs: ["development.md", "architecture.md", "testing.md"]
 ---
 
@@ -148,8 +148,9 @@ Constructor injection only, wired by hand.
 
 - Every dependency is a constructor parameter (`ImageSearchClient` receives its `ImageSearchParser` and `DdgHttpClient`).
 - Classes don't call `new` on their dependencies. `DuckDuckGo` is the composition root: it builds both clients,
-  their parsers and a `DdgHttpClient` for each, so the public `new DuckDuckGo()` stays argument-free. Tests build the
-  graph themselves (`new WebSearchClient(new WebSearchParser(), new DdgHttpClient())`).
+  their parsers and a `DdgHttpClient` for each, so the public `new DuckDuckGo()` stays argument-free, and hands its
+  image client to each `ImageSearchSession` it creates. Tests build the graph themselves
+  (`new WebSearchClient(new WebSearchParser(), new DdgHttpClient())`).
 - Value objects and per-request helpers may be constructed anywhere: results, errors, `URLSearchParams`,
   `GlobalSearchOptions`, and `node-http-toolkit`'s request/reader objects.
 - No module-level singletons or mutable module state.
@@ -197,7 +198,8 @@ union type is enough (`DdgSafeSearch`, `DdgSize`).
   (`import type * as http from 'node:http';`); tests use `import assert from 'node:assert/strict';` and
   `import { describe, it } from 'node:test';`.
 - Default export for classes; named exports for type aliases, const-object enums and companion types. The barrel
-  re-exports classes as `export { default as DuckDuckGo }` and types with `export type`.
+  re-exports classes as `export { default as DuckDuckGo }` and types with `export type`; a class consumers only
+  receive from the library may be re-exported type-only (`export type { default as ImageSearchSession }`).
 
 ## Formatting
 

@@ -2,12 +2,11 @@
 
 ## [architecture.md](architecture.md)
 
-How duck-poacher works inside: the `DuckDuckGo` composition root over `ImageSearchClient`, `WebSearchClient` and `DdgHttpClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, bot-challenge detection, and DuckDuckGo protocol quirks.
+How the package implements the protocol: the `DuckDuckGo` composition root over `ImageSearchClient`, `ImageSearchSession` (token reuse), `WebSearchClient` and `DdgHttpClient`, the token→search→parse flow, filter encoding, safe search handling, parsers, what DDG changes would break, and error handling.
 
 **Use when:**
 
 - Changing image or web search behavior, request headers, option encoding, safe search, or response parsing
-- Debugging DuckDuckGo protocol quirks (vqd token, signed d.js URL, bot challenges)
 - Deciding what a failure throws or where an error comes from
 
 ## [code-style.md](code-style.md)
@@ -20,6 +19,16 @@ How code is written: naming, files and classes, member order, access modifiers, 
 - Deciding naming, member order, constructor injection, or import style
 - Resolving an ESLint or dprint issue, or looking up the `code-style:*` commands
 
+## [ddg-protocol.md](ddg-protocol.md)
+
+DuckDuckGo's undocumented search protocol as observed from browsers: the vqd token and its hourly rotation, the results page, `i.js` and `d.js` parameters and responses, pagination, safe search, region, bot detection, browser header profiles and open questions, each claim labelled with its evidence.
+
+**Use when:**
+
+- Debugging DuckDuckGo protocol quirks (vqd token, signed `d.js` URL, bot challenges) or a broken scraper
+- Deciding what can be reused, cached or built client-side (tokens, page URLs, safe search values)
+- Matching request headers to a real browser, or planning a new browser recording
+
 ## [development.md](development.md)
 
 How to build, type-check and publish: required Node version, dual tsconfig setup, dual ESM/CJS build, the typical command loops, and common pitfalls.
@@ -31,7 +40,7 @@ How to build, type-check and publish: required Node version, dual tsconfig setup
 
 ## [overview.md](overview.md)
 
-What duck-poacher is: its stack, the public API surface (`DuckDuckGo`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
+What duck-poacher is: its stack, the public API surface (`DuckDuckGo`, `ImageSearchSession`, `BotChallengeError`, result classes, option types and values), runnable usage examples, and the project layout.
 
 **Use when:**
 

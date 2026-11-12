@@ -4,6 +4,7 @@ import type { DdgImageSearchOptions } from './image/DdgImageSearchOptions.ts';
 import ImageSearchClient from './image/ImageSearchClient.ts';
 import ImageSearchParser from './image/ImageSearchParser.ts';
 import type ImageSearchResult from './image/ImageSearchResult.ts';
+import ImageSearchSession from './image/ImageSearchSession.ts';
 import WebSearchClient from './web/WebSearchClient.ts';
 import WebSearchParser from './web/WebSearchParser.ts';
 import type WebSearchResult from './web/WebSearchResult.ts';
@@ -12,8 +13,8 @@ import type WebSearchResult from './web/WebSearchResult.ts';
  * Client for image and web search via DuckDuckGo's undocumented endpoints.
  *
  * Stateless across calls: each search mints a fresh per-request token before
- * running, so a single call makes two live HTTP requests. The library's composition root: it builds the
- * clients and their dependencies.
+ * running, so a single call makes two live HTTP requests. To run several image searches for one query on a single
+ * token, use `createImageSearchSession`. The library's composition root: it builds the clients and their dependencies.
  */
 export default class DuckDuckGo {
 	private readonly _imageSearch: ImageSearchClient = new ImageSearchClient(
@@ -38,12 +39,29 @@ export default class DuckDuckGo {
 	 * propagated.
 	 */
 	public async imageSearch(query: string, options?: DdgImageSearchOptions): Promise<ImageSearchResult[]> {
-		const token: string = await this._imageSearch.generateToken(query, options);
+		const session: ImageSearchSession = await this.createImageSearchSession(query);
 
-		return this._imageSearch.imageSearch(
+		return session.search(options);
+	}
+
+	/**
+	 * Mints a `vqd` token for an image query and returns a session that reuses it for every search.
+	 *
+	 * Use it to run several searches for the same query with different filters or safe search levels: each search
+	 * then costs one request instead of two, which keeps bursts below the point where DuckDuckGo starts sending bot
+	 * challenges.
+	 *
+	 * @param query - The search term.
+	 * @returns A session whose `search` takes the filters and safe search level per search.
+	 * @throws If the `vqd` token cannot be scraped from the response. HTTP errors are propagated.
+	 */
+	public async createImageSearchSession(query: string): Promise<ImageSearchSession> {
+		const token: string = await this._imageSearch.generateToken(query);
+
+		return new ImageSearchSession(
+			this._imageSearch,
 			query,
-			token,
-			options
+			token
 		);
 	}
 
