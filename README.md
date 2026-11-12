@@ -26,7 +26,8 @@ Requires Node.js 18 or newer. The package ships dual ESM/CJS.
 ## Usage
 
 `DuckDuckGo` is the client. Construct one to get started. Token generation is automatically handled per request meaning
-each call makes two live requests (mint the token, then search). There is no built-in multi-query, dedupe, or cap.
+each call makes two live requests (mint the token, then search). To run several image searches for the same query on
+one token, use an [image search session](#image-search-session). There is no built-in dedupe or cap.
 
 ### Web Search
 
@@ -66,11 +67,31 @@ for (const result of results) {
 }
 ```
 
+### Image Search Session
+
+DuckDuckGo issues one token per query, valid for any filters and safe search level. `createImageSearchSession` mints it
+once and returns an `ImageSearchSession` whose `search` takes the same `DdgImageSearchOptions` as `imageSearch`. Each
+search then costs one request instead of two: four searches send five requests instead of eight.
+
+```ts
+import { DuckDuckGo, type ImageSearchResult, type ImageSearchSession } from 'duck-poacher';
+
+const ddg = new DuckDuckGo();
+
+const session: ImageSearchSession = await ddg.createImageSearchSession('ducks with human feet');
+
+const squares: ImageSearchResult[] = await session.search({ size: 'Large', layout: 'Square' });
+const everything: ImageSearchResult[] = await session.search({ safeSearch: 'Off' });
+```
+
+A session is bound to its query; create a new one for a different query. Use it for searches that run close together:
+how long DuckDuckGo keeps a token valid is undocumented.
+
 ### Safe Search
 
-Safe search is a DuckDuckGo-wide setting, so both `webSearch` and `imageSearch` accept it through `DdgSearchOptions`
-(`DdgImageSearchOptions` extends it with the image filters). `safeSearch` is `'Off'`, `'Moderate'` or `'Strict'`; when
-omitted, DuckDuckGo's own default (`'Moderate'`) applies.
+Safe search is a DuckDuckGo-wide setting, so `webSearch`, `imageSearch` and `ImageSearchSession.search` accept it
+through `DdgSearchOptions` (`DdgImageSearchOptions` extends it with the image filters). `safeSearch` is `'Off'`,
+`'Moderate'` or `'Strict'`; when omitted, DuckDuckGo's own default (`'Moderate'`) applies.
 
 ## Error Handling
 
@@ -83,9 +104,9 @@ DuckDuckGo protects its image search with a browser-side challenge that this lib
 that for a burst of requests, then blocks image search for your IP for a while. Web search has not been affected so
 far. Light use works fine; dozens of image searches in quick succession will get blocked.
 
-When DDG blocks an image search, `imageSearch` throws a `BotChallengeError`. Its `reason` is DDG's category for the
-challenge (e.g. `'botnet'`), `'unknown'` if DDG sent none, or `'forbidden'` if DDG rejected the request with HTTP 403.
-In the 403 case the original `HttpError` is available as `cause`.
+When DDG blocks an image search, `imageSearch` and `ImageSearchSession.search` throw a `BotChallengeError`. Its
+`reason` is DDG's category for the challenge (e.g. `'botnet'`), `'unknown'` if DDG sent none, or `'forbidden'` if DDG
+rejected the request with HTTP 403. In the 403 case the original `HttpError` is available as `cause`.
 
 ```ts
 import { DuckDuckGo, type ImageSearchResult } from 'duck-poacher';
@@ -105,7 +126,9 @@ catch (error) {
 ```
 
 A block is usually temporary. Don't retry in a tight loop, as that tends to keep it in place. Wait, and spread out
-your searches. If you need search results at volume, use an official search API instead of a scraper.
+your searches. An [image search session](#image-search-session) saves the token requests when you search one query
+several times, but each search still hits the guarded image endpoint. If you need search results at volume, use an
+official search API instead of a scraper.
 
 ## Contributing
 

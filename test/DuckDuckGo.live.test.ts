@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import DuckDuckGo from '../src/DuckDuckGo.ts';
 import type ImageSearchResult from '../src/image/ImageSearchResult.ts';
+import type ImageSearchSession from '../src/image/ImageSearchSession.ts';
 import type WebSearchResult from '../src/web/WebSearchResult.ts';
 import { assertHttpUrl, NETWORK_TIMEOUT_MS, TEST_QUERY } from './TestHelper.ts';
 
@@ -20,6 +21,22 @@ describe('DuckDuckGo', () => {
 				assertHttpUrl(result.imageUrl, 'imageUrl');
 				assertHttpUrl(result.thumbnailUrl, 'thumbnailUrl');
 			}
+		});
+	});
+
+	describe('createImageSearchSession', () => {
+		it('runs searches with different options on one token', { timeout: NETWORK_TIMEOUT_MS }, async () => {
+			// Given a session for the query
+			const client = new DuckDuckGo();
+			const session: ImageSearchSession = await client.createImageSearchSession(TEST_QUERY);
+
+			// When a filtered search and one with safe search off are run on it
+			const filtered: ImageSearchResult[] = await session.search({ size: 'Large' });
+			const safeSearchOff: ImageSearchResult[] = await session.search({ safeSearch: 'Off' });
+
+			// Then DDG accepts the reused token for both and returns non-empty lists
+			assert.ok(filtered.length > 0, 'filtered results should not be empty');
+			assert.ok(safeSearchOff.length > 0, 'safe search off results should not be empty');
 		});
 	});
 
